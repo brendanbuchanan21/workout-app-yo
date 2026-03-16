@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  passwordHash      String   @default("")
+  googleId          String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Profile
+  displayName       String?
+  sex               String?
+  birthDate         DateTime?
+  heightCm          Float?
+  experienceLevel   String?
+  daysPerWeek       Int?
+  activityLevel     String?
+  bodyFatPercent    Float?
+  unitPreference    String   @default("imperial")
+
+  // Relationships
+  bodyWeights       BodyWeight[]
+  nutritionLogs     NutritionLog[]
+  workoutSessions   WorkoutSession[]
+  mesocycles        Mesocycle[]
+  nutritionPhases   NutritionPhase[]
+  weeklyCheckIns    WeeklyCheckIn[]
+  progressPhotos    ProgressPhoto[]
+  subscriptions     Subscription[]
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  revenueCatId      String?
+  status            String
+  plan              String
+  currentPeriodEnd  DateTime?
+  createdAt         DateTime @default(now())
+}
+
+model BodyWeight {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  weightKg  Float
+  source    String   @default("manual")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+model ProgressPhoto {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  imageUrl  String
+  angle     String
+  createdAt DateTime @default(now())
+}
+
+model NutritionPhase {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  status          String   @default("active")
+  phaseType       String
+  startDate       DateTime @db.Date
+  endDate         DateTime? @db.Date
+
+  startWeightKg   Float
+  targetWeightKg  Float?
+  targetRatePerWeek Float?
+
+  currentCalories Int
+  currentProteinG Int
+  currentCarbsG   Int
+  currentFatG     Int
+
+  proteinPerKg    Float    @default(2.2)
+  dietStyle       String   @default("balanced")
+
+  estimatedTdee   Int?
+  adaptiveTdee    Int?
+  tdeeConfidence  Float    @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model NutritionLog {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  date            DateTime @db.Date
+  mealNumber      Int
+
+  calories        Int
+  proteinG        Float
+  carbsG          Float
+  fatG            Float
+
+  logMethod       String   @default("manual")
+  photoUrl        String?
+  foodDescription String?
+
+  createdAt       DateTime @default(now())
+}
+
+model ExerciseCatalog {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  primaryMuscle    String
+  secondaryMuscles String[]
+  equipment        String
+  movementType     String
+  repRangeLow      Int
+  repRangeHigh     Int
+  isDefault        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+}
+
+model ProgramTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  splitType   String
+  daysPerWeek Int
+  lengthWeeks Int      @default(5)
+  difficulty  String
+  days        Json
+  createdAt   DateTime @default(now())
+}
+
+model Mesocycle {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  status          String   @default("active")
+  mesocycleNumber Int
+  startDate       DateTime @db.Date
+  endDate         DateTime? @db.Date
+  lengthWeeks     Int      @default(5)
+  currentWeek     Int      @default(1)
+
+  splitType       String
+  daysPerWeek     Int
+  setupMethod     String?
+  templateId      String?
+  customDays      Json?
+
+  volumeTargets   Json
+  customGuardrails Json?
+
+  startingRir         Int     @default(3)
+  rirFloor            Int     @default(1)
+  rirDecrementPerWeek Float   @default(1)
+  deloadRir           Int     @default(6)
+
+  workoutSessions WorkoutSession[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model WorkoutSession {
+  id            String   @id @default(uuid())
+  mesocycleId   String
+  mesocycle     Mesocycle @relation(fields: [mesocycleId], references: [id])
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  date          DateTime @db.Date
+  weekNumber    Int
+  dayLabel      String
+  status        String   @default("planned")
+  completedAt   DateTime?
+
+  exercises     Exercise[]
+  createdAt     DateTime @default(now())
+}
+
+model Exercise {
+  id               String   @id @default(uuid())
+  workoutSessionId String
+  workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id])
+  catalogId        String?
+  orderIndex       Int
+  exerciseName     String
+  muscleGroup      String
+  secondaryMuscle  String?
+
+  sets             ExerciseSet[]
+}
+
+model ExerciseSet {
+  id          String   @id @default(uuid())
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  setNumber   Int
+  setType     String   @default("working")
+
+  targetReps     Int?
+  targetRir      Int?
+  targetWeightKg Float?
+
+  actualReps     Int?
+  actualRir      Int?
+  actualWeightKg Float?
+
+  completed   Boolean  @default(false)
+}
+
+model WeeklyCheckIn {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  weekStartDate   DateTime @db.Date
+
+  avgWeightKg         Float?
+  trendWeightKg       Float?
+  weightChangeKg      Float?
+  rateOfChange        Float?
+
+  hungerRating        Int?
+  energyRating        Int?
+  sleepRating         Int?
+  stressRating        Int?
+
+  totalVolumeSets     Int?
+  avgRir              Float?
+  compoundPerformance Json?
+
+  avgCalories     Int?
+  avgProteinG     Float?
+  daysLogged      Int?
+
+  recommendation  String?
+  macroAdjustment Json?
+  phaseAction     String?
+
+  createdAt DateTime @default(now())
+}

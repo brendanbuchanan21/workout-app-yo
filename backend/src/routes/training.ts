@@ -12,6 +12,7 @@ import {
   getMuscleGroupsForDay,
   SPLIT_DEFINITIONS,
 } from '../services/workoutGenerator';
+import { prescribeSession } from '../services/sessionAutoregulation';
 
 const router = Router();
 
@@ -33,7 +34,12 @@ router.get('/exercises', requireAuth, async (req: AuthRequest, res: Response) =>
     const search = queryString(req.query.search);
     const movementType = queryString(req.query.movementType);
 
-    const where: any = {};
+    const where: any = {
+      OR: [
+        { isDefault: true },
+        { userId: req.userId! },
+      ],
+    };
     if (muscle) where.primaryMuscle = muscle;
     if (equipment) where.equipment = equipment;
     if (movementType) where.movementType = movementType;
@@ -52,22 +58,22 @@ router.get('/exercises', requireAuth, async (req: AuthRequest, res: Response) =>
 });
 
 // Create custom exercise
+const createExerciseSchema = z.object({
+  name: z.string().min(1),
+  primaryMuscle: z.string(),
+  secondaryMuscles: z.array(z.string()).default([]),
+  equipment: z.string(),
+  movementType: z.enum(['compound', 'isolation']),
+  repRangeLow: z.number().int().min(1).default(6),
+  repRangeHigh: z.number().int().min(1).default(12),
+});
+
 router.post('/exercises', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const schema = z.object({
-      name: z.string().min(1),
-      primaryMuscle: z.string(),
-      secondaryMuscles: z.array(z.string()).default([]),
-      equipment: z.string(),
-      movementType: z.enum(['compound', 'isolation']),
-      repRangeLow: z.number().int().min(1),
-      repRangeHigh: z.number().int().min(1),
-    });
-
-    const data = schema.parse(req.body);
+    const data = createExerciseSchema.parse(req.body);
 
     const exercise = await prisma.exerciseCatalog.create({
-      data: { ...data, isDefault: false },
+      data: { ...data, isDefault: false, userId: req.userId! },
     });
 
     res.status(201).json({ exercise });
@@ -76,7 +82,166 @@ router.post('/exercises', requireAuth, async (req: AuthRequest, res: Response) =
       res.status(400).json({ error: 'Invalid input', details: error.errors });
       return;
     }
+    if ((error as any)?.code === 'P2002') {
+      res.status(400).json({ error: 'You already have an exercise with this name' });
+      return;
+    }
     console.error('Create exercise error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all personal records for the user (best reps at each weight per exercise)
+router.get('/prs', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const sets = await prisma.exerciseSet.findMany({
+      where: {
+        completed: true,
+        actualWeightKg: { not: null },
+        actualReps: { not: null },
+        exercise: {
+          workoutSession: {
+            userId: req.userId!,
+            completedAt: { not: null },
+          },
+        },
+      },
+      include: {
+        exercise: {
+          select: {
+            exerciseName: true,
+            catalogId: true,
+            workoutSession: { select: { date: true } },
+          },
+        },
+      },
+    });
+
+    // Group by exercise, then by weight — track best reps at each weight
+    const exerciseMap: Record<string, {
+      exerciseName: string;
+      catalogId: string | null;
+      records: Record<number, { reps: number; date: string }>;
+    }> = {};
+
+    for (const set of sets) {
+      const key = set.exercise.catalogId || set.exercise.exerciseName;
+      const weight = set.actualWeightKg!;
+      const reps = set.actualReps!;
+      const date = set.exercise.workoutSession.date.toISOString().split('T')[0];
+
+      if (!exerciseMap[key]) {
+        exerciseMap[key] = {
+          exerciseName: set.exercise.exerciseName,
+          catalogId: set.exercise.catalogId,
+          records: {},
+        };
+      }
+
+      const existing = exerciseMap[key].records[weight];
+      if (!existing || reps > existing.reps) {
+        exerciseMap[key].records[weight] = { reps, date };
+      }
+    }
+
+    // Convert to sorted array
+    const prs = Object.values(exerciseMap)
+      .map((ex) => ({
+        exerciseName: ex.exerciseName,
+        catalogId: ex.catalogId,
+        records: Object.entries(ex.records)
+          .map(([weight, data]) => ({
+            weightKg: parseFloat(weight),
+            reps: data.reps,
+            date: data.date,
+          }))
+          .sort((a, b) => b.weightKg - a.weightKg),
+      }))
+      .sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
+
+    res.json({ prs });
+  } catch (error) {
+    console.error('Get PRs error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get e1RM history and per-exercise progression for all exercises
+router.get('/exercise-history', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const sets = await prisma.exerciseSet.findMany({
+      where: {
+        completed: true,
+        actualWeightKg: { not: null },
+        actualReps: { not: null },
+        exercise: {
+          workoutSession: {
+            userId: req.userId!,
+            completedAt: { not: null },
+          },
+        },
+      },
+      include: {
+        exercise: {
+          select: {
+            exerciseName: true,
+            catalogId: true,
+            workoutSession: { select: { date: true } },
+          },
+        },
+      },
+    });
+
+    // Group by exercise → by session date → best set and e1RM
+    const exerciseMap: Record<string, {
+      exerciseName: string;
+      catalogId: string | null;
+      sessions: Record<string, { bestWeightKg: number; bestReps: number; e1rm: number }>;
+    }> = {};
+
+    for (const set of sets) {
+      const key = set.exercise.catalogId || set.exercise.exerciseName;
+      const weight = set.actualWeightKg!;
+      const reps = set.actualReps!;
+      const date = set.exercise.workoutSession.date.toISOString().split('T')[0];
+
+      // Epley formula: e1RM = weight × (1 + reps/30)
+      const e1rm = reps === 1 ? weight : Math.round(weight * (1 + reps / 30) * 100) / 100;
+
+      if (!exerciseMap[key]) {
+        exerciseMap[key] = {
+          exerciseName: set.exercise.exerciseName,
+          catalogId: set.exercise.catalogId,
+          sessions: {},
+        };
+      }
+
+      const existing = exerciseMap[key].sessions[date];
+      if (!existing || e1rm > existing.e1rm) {
+        exerciseMap[key].sessions[date] = { bestWeightKg: weight, bestReps: reps, e1rm };
+      }
+    }
+
+    // Convert to sorted arrays
+    const exercises = Object.values(exerciseMap)
+      .map((ex) => ({
+        exerciseName: ex.exerciseName,
+        catalogId: ex.catalogId,
+        history: Object.entries(ex.sessions)
+          .map(([date, data]) => ({
+            date,
+            bestWeightKg: data.bestWeightKg,
+            bestReps: data.bestReps,
+            e1rmKg: data.e1rm,
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      }))
+      .filter((ex) => ex.history.length > 0)
+      .sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
+
+    res.json({ exercises });
+  } catch (error) {
+    console.error('Get exercise history error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -242,8 +407,11 @@ router.post('/templates/:id/apply', requireAuth, async (req: AuthRequest, res: R
           const weekSets = isDeload ? Math.ceil(baseSets * 0.5) : baseSets;
 
           // Look up catalog entry
-          const catalogEntry = await prisma.exerciseCatalog.findUnique({
-            where: { name: exDef.exerciseName },
+          const catalogEntry = await prisma.exerciseCatalog.findFirst({
+            where: {
+              name: exDef.exerciseName,
+              OR: [{ isDefault: true }, { userId: req.userId! }],
+            },
           });
 
           const exercise = await prisma.exercise.create({
@@ -775,6 +943,90 @@ router.get('/volume-summary', requireAuth, async (req: AuthRequest, res: Respons
   }
 });
 
+// All-time volume history per muscle group (weekly buckets)
+router.get('/volume-history', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const sessions = await prisma.workoutSession.findMany({
+      where: {
+        userId: req.userId!,
+        completedAt: { not: null },
+      },
+      include: {
+        exercises: {
+          include: { sets: true },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Bucket by ISO week
+    const weeklyVolume: Record<string, Record<string, number>> = {};
+
+    for (const session of sessions) {
+      const d = new Date(session.date);
+      // Get ISO week start (Monday)
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const weekStart = new Date(d);
+      weekStart.setDate(diff);
+      const weekKey = weekStart.toISOString().split('T')[0];
+
+      if (!weeklyVolume[weekKey]) weeklyVolume[weekKey] = {};
+
+      for (const exercise of session.exercises) {
+        const muscle = exercise.muscleGroup;
+        const completedSets = exercise.sets.filter((s) => s.completed).length;
+        weeklyVolume[weekKey][muscle] = (weeklyVolume[weekKey][muscle] || 0) + completedSets;
+      }
+    }
+
+    // Convert to sorted array
+    const weeks = Object.entries(weeklyVolume)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([weekStart, muscles]) => ({ weekStart, muscles }));
+
+    res.json({ weeks });
+  } catch (error) {
+    console.error('Get volume history error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Workout activity dates for heat map (last 365 days)
+router.get('/activity', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: {
+        userId: req.userId!,
+        completedAt: { not: null },
+        date: { gte: oneYearAgo },
+      },
+      select: {
+        date: true,
+        dayLabel: true,
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Group by date, count sessions per day
+    const activity: Record<string, { count: number; labels: string[] }> = {};
+    for (const session of sessions) {
+      const dateKey = new Date(session.date).toISOString().split('T')[0];
+      if (!activity[dateKey]) activity[dateKey] = { count: 0, labels: [] };
+      activity[dateKey].count++;
+      if (session.dayLabel) activity[dateKey].labels.push(session.dayLabel);
+    }
+
+    res.json({ activity });
+  } catch (error) {
+    console.error('Get activity error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ==========================================
 // BUILD AS YOU GO — Session creation
 // ==========================================
@@ -797,6 +1049,12 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
         mesocycleId: mesocycle.id,
         weekNumber: mesocycle.currentWeek,
       },
+      include: {
+        exercises: {
+          orderBy: { orderIndex: 'asc' },
+          select: { exerciseName: true },
+        },
+      },
       orderBy: { date: 'asc' },
     });
 
@@ -807,11 +1065,24 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
     const dayLabels = getDayLabels(mesocycle.splitType, mesocycle.daysPerWeek, customDays);
     const rir = getRirForWeek(mesocycle.currentWeek, mesocycle.lengthWeeks, mesocycle);
 
+    // Build completion info per day label for this week
+    const dayCompletions: Record<string, { completed: boolean; exercises: string[] }> = {};
+    for (const s of sessionsThisWeek) {
+      if (s.status === 'completed') {
+        dayCompletions[s.dayLabel] = {
+          completed: true,
+          exercises: s.exercises.map((e) => e.exerciseName),
+        };
+      }
+    }
+
     // For build-as-you-go, return all day options so user can choose
     if (mesocycle.setupMethod === 'build_as_you_go') {
       const dayOptions = dayLabels.map((label, i) => ({
         dayLabel: label,
         muscleGroups: getMuscleGroupsForDay(mesocycle.splitType, i, customDays),
+        completed: dayCompletions[label]?.completed || false,
+        exercises: dayCompletions[label]?.exercises || [],
       }));
 
       res.json({
@@ -848,6 +1119,96 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Get prescription for next session based on previous performance
+router.get('/prescription/:dayLabel', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const dayLabel = String(req.params.dayLabel);
+
+    const mesocycle = await prisma.mesocycle.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!mesocycle) {
+      res.status(404).json({ error: 'No active mesocycle found' });
+      return;
+    }
+
+    const targetRir = getRirForWeek(mesocycle.currentWeek, mesocycle.lengthWeeks, mesocycle);
+
+    // Find the last 3 completed sessions with this day label in this mesocycle
+    // (need 3 for consecutive decline detection: N vs N-1, N-1 vs N-2)
+    const previousSessions = await prisma.workoutSession.findMany({
+      where: {
+        mesocycleId: mesocycle.id,
+        dayLabel,
+        completedAt: { not: null },
+      },
+      include: {
+        exercises: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            sets: { orderBy: { setNumber: 'asc' } },
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+      take: 3,
+    });
+
+    if (previousSessions.length === 0) {
+      res.json({ prescription: null });
+      return;
+    }
+
+    const lastSession = previousSessions[0];
+    const olderSessions = previousSessions.slice(1); // up to 2 older sessions
+
+    // Build rep range lookup from catalog
+    const catalogIds = lastSession.exercises
+      .filter((e) => e.catalogId)
+      .map((e) => e.catalogId!);
+
+    const catalogEntries = catalogIds.length > 0
+      ? await prisma.exerciseCatalog.findMany({
+          where: { id: { in: catalogIds } },
+          select: { id: true, repRangeLow: true, repRangeHigh: true },
+        })
+      : [];
+
+    const repRanges: Record<string, { low: number; high: number }> = {};
+    for (const entry of catalogEntries) {
+      repRanges[entry.id] = { low: entry.repRangeLow, high: entry.repRangeHigh };
+    }
+
+    function mapSessionExercises(session: typeof lastSession) {
+      return session.exercises.map((e) => ({
+        catalogId: e.catalogId,
+        exerciseName: e.exerciseName,
+        muscleGroup: e.muscleGroup,
+        sets: e.sets.map((s) => ({
+          setNumber: s.setNumber,
+          actualWeightKg: s.actualWeightKg,
+          actualReps: s.actualReps,
+          actualRir: s.actualRir,
+          completed: s.completed,
+        })),
+      }));
+    }
+
+    const prevExercises = mapSessionExercises(lastSession);
+    const olderSessionsList = olderSessions.length > 0
+      ? olderSessions.map(mapSessionExercises)
+      : null;
+
+    const prescription = prescribeSession(prevExercises, targetRir, repRanges, olderSessionsList);
+
+    res.json({ prescription });
+  } catch (error) {
+    console.error('Get prescription error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Create a session (for Build As You Go)
 const createSessionSchema = z.object({
   dayLabel: z.string(),
@@ -858,6 +1219,12 @@ const createSessionSchema = z.object({
     sets: z.number().int().min(1).max(10),
     repRangeLow: z.number().int().optional(),
     repRangeHigh: z.number().int().optional(),
+    prescription: z.array(z.object({
+      setNumber: z.number().int(),
+      targetWeightKg: z.number().nullable().optional(),
+      targetReps: z.number().int().nullable().optional(),
+      targetRir: z.number().int().optional(),
+    })).optional(),
   })),
 });
 
@@ -913,13 +1280,15 @@ router.post('/session/create', requireAuth, async (req: AuthRequest, res: Respon
         : null;
 
       for (let s = 1; s <= exDef.sets; s++) {
+        const setPrescription = exDef.prescription?.find((p) => p.setNumber === s);
         await prisma.exerciseSet.create({
           data: {
             exerciseId: exercise.id,
             setNumber: s,
             setType: 'working',
-            targetReps: repTarget,
-            targetRir: rir,
+            targetReps: setPrescription?.targetReps ?? repTarget,
+            targetRir: setPrescription?.targetRir ?? rir,
+            targetWeightKg: setPrescription?.targetWeightKg ?? null,
           },
         });
       }
@@ -1055,6 +1424,7 @@ router.put('/session/:id/complete', requireAuth, async (req: AuthRequest, res: R
       include: {
         exercises: {
           include: { sets: true },
+          orderBy: { orderIndex: 'asc' },
         },
       },
     });
@@ -1064,23 +1434,153 @@ router.put('/session/:id/complete', requireAuth, async (req: AuthRequest, res: R
       return;
     }
 
+    const completedAt = new Date();
     const updated = await prisma.workoutSession.update({
       where: { id: session.id },
-      data: { status: 'completed', completedAt: new Date() },
+      data: { status: 'completed', completedAt },
     });
 
-    // Summarize volume
+    // Summarize volume by muscle
     const volumeByMuscle: Record<string, number> = {};
     for (const exercise of session.exercises) {
       const completedSets = exercise.sets.filter((s) => s.completed).length;
       volumeByMuscle[exercise.muscleGroup] = (volumeByMuscle[exercise.muscleGroup] || 0) + completedSets;
     }
 
+    const totalSets = Object.values(volumeByMuscle).reduce((a, b) => a + b, 0);
+    const totalPlannedSets = session.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+
+    // Tonnage: sum of actualWeightKg * actualReps for all completed sets
+    let tonnage = 0;
+    for (const exercise of session.exercises) {
+      for (const set of exercise.sets) {
+        if (set.completed && set.actualWeightKg != null && set.actualReps != null) {
+          tonnage += set.actualWeightKg * set.actualReps;
+        }
+      }
+    }
+
+    // PRs: check each completed set for rep PRs at its weight
+    const prs: { exerciseName: string; weightKg: number; reps: number; previousBestReps: number | null }[] = [];
+
+    for (const exercise of session.exercises) {
+      if (!exercise.catalogId) continue;
+
+      for (const set of exercise.sets) {
+        if (!set.completed || set.actualWeightKg == null || set.actualReps == null) continue;
+
+        // Find previous best reps at this exact weight for this exercise
+        const previousBest = await prisma.exerciseSet.findFirst({
+          where: {
+            exercise: {
+              catalogId: exercise.catalogId,
+              workoutSession: {
+                userId: req.userId!,
+                completedAt: { not: null },
+                id: { not: session.id },
+              },
+            },
+            completed: true,
+            actualWeightKg: set.actualWeightKg,
+            actualReps: { not: null },
+          },
+          orderBy: { actualReps: 'desc' },
+          select: { actualReps: true },
+        });
+
+        const prevReps = previousBest?.actualReps ?? null;
+        if (prevReps === null || set.actualReps > prevReps) {
+          // Avoid duplicate PRs for same exercise+weight (keep best reps from this session)
+          const existingIdx = prs.findIndex(
+            (p) => p.exerciseName === exercise.exerciseName && p.weightKg === set.actualWeightKg
+          );
+          if (existingIdx >= 0) {
+            if (set.actualReps > prs[existingIdx].reps) {
+              prs[existingIdx].reps = set.actualReps;
+            }
+          } else {
+            prs.push({
+              exerciseName: exercise.exerciseName,
+              weightKg: set.actualWeightKg,
+              reps: set.actualReps,
+              previousBestReps: prevReps,
+            });
+          }
+        }
+      }
+    }
+
+    // Per-exercise best set
+    const perExerciseBest: { exerciseName: string; weight: number; reps: number | null }[] = [];
+    for (const exercise of session.exercises) {
+      let bestSet: { weight: number; reps: number | null } | null = null;
+      for (const set of exercise.sets) {
+        if (set.completed && set.actualWeightKg != null) {
+          if (!bestSet || set.actualWeightKg > bestSet.weight) {
+            bestSet = { weight: set.actualWeightKg, reps: set.actualReps };
+          }
+        }
+      }
+      if (bestSet) {
+        perExerciseBest.push({ exerciseName: exercise.exerciseName, ...bestSet });
+      }
+    }
+
+    // Duration: completedAt - createdAt
+    const durationSeconds = Math.round((completedAt.getTime() - session.createdAt.getTime()) / 1000);
+
+    // Completion rate
+    const completionRate = totalPlannedSets > 0 ? totalSets / totalPlannedSets : 0;
+
+    // Meso comparison: all completed sessions in this mesocycle
+    const mesoSessions = await prisma.workoutSession.findMany({
+      where: {
+        mesocycleId: session.mesocycleId,
+        completedAt: { not: null },
+      },
+      include: {
+        exercises: {
+          include: { sets: true },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    const sessionTonnages: { date: string; tonnage: number }[] = [];
+    let totalMesoSets = 0;
+    for (const ms of mesoSessions) {
+      let msTonnage = 0;
+      for (const ex of ms.exercises) {
+        for (const set of ex.sets) {
+          if (set.completed) {
+            totalMesoSets++;
+            if (set.actualWeightKg != null && set.actualReps != null) {
+              msTonnage += set.actualWeightKg * set.actualReps;
+            }
+          }
+        }
+      }
+      sessionTonnages.push({
+        date: ms.date.toISOString().split('T')[0],
+        tonnage: msTonnage,
+      });
+    }
+
     res.json({
       session: updated,
       summary: {
-        totalSets: Object.values(volumeByMuscle).reduce((a, b) => a + b, 0),
+        totalSets,
         volumeByMuscle,
+        tonnage,
+        durationSeconds,
+        completionRate,
+        prs,
+        perExerciseBest,
+        mesoComparison: {
+          sessionTonnages,
+          totalMesoSets,
+          sessionsCompleted: mesoSessions.length,
+        },
       },
     });
   } catch (error) {

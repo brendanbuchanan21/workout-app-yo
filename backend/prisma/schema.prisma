@@ -120,7 +120,7 @@ model NutritionLog {
 
 model ExerciseCatalog {
   id               String   @id @default(uuid())
-  name             String   @unique
+  name             String
   primaryMuscle    String
   secondaryMuscles String[]
   equipment        String
@@ -128,7 +128,10 @@ model ExerciseCatalog {
   repRangeLow      Int
   repRangeHigh     Int
   isDefault        Boolean  @default(true)
+  userId           String?
   createdAt        DateTime @default(now())
+
+  @@unique([name, userId])
 }
 
 model ProgramTemplate {

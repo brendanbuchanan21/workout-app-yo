@@ -16,6 +16,8 @@ import EquipmentIcon from '../../src/components/EquipmentIcon';
 interface DayOption {
   dayLabel: string;
   muscleGroups: string[];
+  completed?: boolean;
+  exercises?: string[];
 }
 
 interface TodayContext {
@@ -41,6 +43,13 @@ interface CatalogExercise {
   repRangeHigh: number;
 }
 
+interface SetPrescription {
+  setNumber: number;
+  targetWeightKg: number | null;
+  targetReps: number | null;
+  targetRir: number;
+}
+
 interface PendingExercise {
   catalogId: string;
   exerciseName: string;
@@ -48,6 +57,8 @@ interface PendingExercise {
   sets: number;
   repRangeLow: number;
   repRangeHigh: number;
+  prescription?: SetPrescription[];
+  adjustmentNote?: string | null;
 }
 
 export default function Train() {
@@ -73,6 +84,13 @@ export default function Train() {
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [exerciseSearch, setExerciseSearch] = useState('');
   const [pendingExercises, setPendingExercises] = useState<PendingExercise[]>([]);
+  const [showCreateExercise, setShowCreateExercise] = useState(false);
+  const [newExercise, setNewExercise] = useState({
+    name: '',
+    primaryMuscle: '',
+    equipment: '',
+    movementType: 'compound' as 'compound' | 'isolation',
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -159,6 +177,33 @@ export default function Train() {
     setSelectedMuscle(null);
   };
 
+  const createCustomExercise = async () => {
+    if (!newExercise.name.trim() || !newExercise.primaryMuscle || !newExercise.equipment) {
+      Alert.alert('Missing Fields', 'Please fill in the name, muscle group, and equipment type.');
+      return;
+    }
+    try {
+      const res = await apiPost('/training/exercises', {
+        name: newExercise.name.trim(),
+        primaryMuscle: newExercise.primaryMuscle,
+        equipment: newExercise.equipment,
+        movementType: newExercise.movementType,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCatalog([...catalog, data.exercise]);
+        addExercise(data.exercise);
+        setShowCreateExercise(false);
+        setNewExercise({ name: '', primaryMuscle: '', equipment: '', movementType: 'compound' });
+      } else {
+        const err = await res.json();
+        Alert.alert('Error', err.error || 'Failed to create exercise');
+      }
+    } catch (err) {
+      console.error('Create exercise error:', err);
+    }
+  };
+
   const removeExercise = (index: number) => {
     setPendingExercises(pendingExercises.filter((_, i) => i !== index));
   };
@@ -186,7 +231,15 @@ export default function Train() {
     try {
       const res = await apiPost('/training/session/create', {
         dayLabel: today.dayLabel,
-        exercises: pendingExercises,
+        exercises: pendingExercises.map((ex) => ({
+          catalogId: ex.catalogId,
+          exerciseName: ex.exerciseName,
+          muscleGroup: ex.muscleGroup,
+          sets: ex.sets,
+          repRangeLow: ex.repRangeLow,
+          repRangeHigh: ex.repRangeHigh,
+          prescription: ex.prescription,
+        })),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -214,6 +267,8 @@ export default function Train() {
     }
   };
 
+  const kgToLbs = (kg: number) => Math.round(kg * 2.20462);
+
   const openSetInput = (exerciseIdx: number, setIdx: number) => {
     if (!session) return;
     const exercise = session.exercises[exerciseIdx];
@@ -231,7 +286,7 @@ export default function Train() {
     if (hasOwnData) {
       setActiveSetIdx(setIdx);
       setSetInputs({
-        weight: set.actualWeightKg != null ? String(set.actualWeightKg) : '',
+        weight: set.actualWeightKg != null ? String(kgToLbs(set.actualWeightKg)) : '',
         reps: set.actualReps != null ? String(set.actualReps) : '',
         rir: set.actualRir != null ? String(set.actualRir) : '',
       });
@@ -250,7 +305,7 @@ export default function Train() {
       // Use set 1 as the baseline for fatigue estimation
       const firstSet = completedSets[0];
       const set1Reps = firstSet.actualReps;
-      const targetRir = firstSet.actualRir ?? today.targetRir ?? 3;
+      const targetRir = firstSet.actualRir ?? today?.targetRir ?? 3;
 
       // Retention factors for sets to failure at ~2 min rest (research-based)
       const failureRetention = [1.0, 0.70, 0.55, 0.50, 0.45];
@@ -265,13 +320,18 @@ export default function Train() {
       const adjustedRetention = 1 - (dropOff * modifier);
 
       const lastDone = completedSets[completedSets.length - 1];
-      weight = lastDone.actualWeightKg != null ? String(lastDone.actualWeightKg) : '';
+      weight = lastDone.actualWeightKg != null ? String(kgToLbs(lastDone.actualWeightKg)) : '';
       const estimatedReps = set1Reps != null ? Math.max(1, Math.round(set1Reps * adjustedRetention)) : null;
       reps = estimatedReps != null ? String(estimatedReps) : '';
       rir = targetRir != null ? String(targetRir) : '';
+    } else if (set.targetWeightKg != null || set.targetReps != null) {
+      // Use prescription targets
+      weight = set.targetWeightKg != null ? String(kgToLbs(set.targetWeightKg)) : '';
+      reps = set.targetReps != null ? String(set.targetReps) : '';
+      rir = set.targetRir != null ? String(set.targetRir) : '';
     } else if (history && history.length > 0) {
       const historySet = history.find((s: any) => s.setNumber === set.setNumber) || history[0];
-      weight = historySet?.actualWeightKg != null ? String(historySet.actualWeightKg) : '';
+      weight = historySet?.actualWeightKg != null ? String(kgToLbs(historySet.actualWeightKg)) : '';
       reps = historySet?.actualReps != null ? String(historySet.actualReps) : '';
       rir = historySet?.actualRir != null ? String(historySet.actualRir) : '';
     }
@@ -283,14 +343,15 @@ export default function Train() {
   const logSet = async (exerciseIdx: number, setIdx: number) => {
     if (!session) return;
     const set = session.exercises[exerciseIdx].sets[setIdx];
-    const weight = setInputs.weight.trim() ? parseFloat(setInputs.weight) : undefined;
+    const weightLbs = setInputs.weight.trim() ? parseFloat(setInputs.weight) : undefined;
+    const weightKg = weightLbs != null ? Math.round(weightLbs / 2.20462 * 100) / 100 : undefined;
     const reps = setInputs.reps.trim() ? parseInt(setInputs.reps, 10) : undefined;
     const rir = setInputs.rir.trim() ? parseInt(setInputs.rir, 10) : undefined;
 
     try {
       const res = await apiPut(`/training/set/${set.id}/log`, {
         completed: true,
-        actualWeightKg: weight,
+        actualWeightKg: weightKg,
         actualReps: reps,
         actualRir: rir,
       });
@@ -334,11 +395,15 @@ export default function Train() {
       const res = await apiPut(`/training/session/${session.id}/complete`, {});
       if (res.ok) {
         const data = await res.json();
-        Alert.alert(
-          'Workout Complete!',
-          `${data.summary.totalSets} sets completed`,
-          [{ text: 'Nice!', onPress: () => { setSession(null); loadData(); } }]
-        );
+        setSession(null);
+        router.push({
+          pathname: '/workout-summary',
+          params: {
+            summary: JSON.stringify(data.summary),
+            dayLabel: session.dayLabel || '',
+            weekNumber: String(session.weekNumber || ''),
+          },
+        });
       }
     } catch (err) {
       console.error('Finish workout error:', err);
@@ -454,32 +519,124 @@ export default function Train() {
 
   // DAY PICKER — choose which day to train
   if (choosingDay && !session && today.dayOptions) {
+    const completedDays = today.dayOptions.filter((d) => d.completed);
+    const nextDay = today.dayOptions.find((d) => !d.completed);
+    const totalDays = today.dayOptions.length;
+    const completedCount = completedDays.length;
+    const allDone = completedCount === totalDays;
+
+    const startDay = async (option: DayOption) => {
+      setChosenDay(option);
+      setChoosingDay(false);
+      setToday({ ...today, dayLabel: option.dayLabel, suggestedMuscleGroups: option.muscleGroups });
+
+      // Check for prescription from previous session
+      try {
+        const res = await apiGet(`/training/prescription/${encodeURIComponent(option.dayLabel)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.prescription && data.prescription.exercises.length > 0) {
+            // Pre-fill pending exercises from prescription
+            const prescribed: PendingExercise[] = data.prescription.exercises.map((ex: any) => ({
+              catalogId: ex.catalogId || '',
+              exerciseName: ex.exerciseName,
+              muscleGroup: ex.muscleGroup,
+              sets: ex.sets.length,
+              repRangeLow: Math.min(...ex.sets.map((s: any) => s.targetReps || 6)),
+              repRangeHigh: Math.max(...ex.sets.map((s: any) => s.targetReps || 12)),
+              prescription: ex.sets,
+              adjustmentNote: ex.adjustmentNote,
+            }));
+            setPendingExercises(prescribed);
+            setBuildMode(true);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Prescription fetch error:', err);
+      }
+
+      setBuildMode(true);
+    };
+
     return (
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.mesoLabel}>Week {today.weekNumber} · RIR {today.targetRir}</Text>
-          <Text style={styles.dayLabelText}>What are you training?</Text>
-          <Text style={styles.buildSubtitle}>Pick a workout for today</Text>
           <SettingsLink />
 
-          {today.dayOptions.map((option, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.dayOptionCard}
-              onPress={() => {
-                setChosenDay(option);
-                setChoosingDay(false);
-                setBuildMode(true);
-                // Update today context with the chosen day
-                setToday({ ...today, dayLabel: option.dayLabel, suggestedMuscleGroups: option.muscleGroups });
-              }}
-            >
-              <Text style={styles.dayOptionTitle}>{option.dayLabel}</Text>
-              <Text style={styles.dayOptionMuscles}>
-                {option.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
+          {/* Next Up Card */}
+          {nextDay && !allDone && (
+            <View style={styles.nextUpCard}>
+              <Text style={styles.nextUpLabel}>Next Up</Text>
+              <Text style={styles.nextUpTitle}>{nextDay.dayLabel}</Text>
+              <Text style={styles.nextUpMuscles}>
+                {nextDay.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
               </Text>
-            </TouchableOpacity>
-          ))}
+              <TouchableOpacity style={styles.startWorkoutBtn} onPress={() => startDay(nextDay)}>
+                <Text style={styles.startWorkoutBtnText}>Start Workout</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {allDone && (
+            <View style={styles.nextUpCard}>
+              <Text style={styles.nextUpTitle}>Week Complete</Text>
+              <Text style={styles.nextUpMuscles}>All {totalDays} sessions finished this week</Text>
+            </View>
+          )}
+
+          {/* Weekly Progress */}
+          <View style={styles.weekProgressSection}>
+            <Text style={styles.weekProgressTitle}>
+              This Week ({completedCount} of {totalDays})
+            </Text>
+            <View style={styles.weekDayPills}>
+              {today.dayOptions.map((option, i) => {
+                const isNext = !option.completed && option === nextDay;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.weekDayPill,
+                      option.completed && styles.weekDayPillDone,
+                      isNext && styles.weekDayPillNext,
+                    ]}
+                    onPress={() => {
+                      if (!option.completed) startDay(option);
+                    }}
+                    activeOpacity={option.completed ? 1 : 0.7}
+                  >
+                    <Text style={[
+                      styles.weekDayPillText,
+                      option.completed && styles.weekDayPillTextDone,
+                      isNext && styles.weekDayPillTextNext,
+                    ]}>
+                      {option.dayLabel}
+                    </Text>
+                    {option.completed && <Text style={styles.weekDayPillCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Completed Sessions Detail */}
+          {completedDays.length > 0 && (
+            <View style={styles.completedSection}>
+              <Text style={styles.completedSectionTitle}>Completed</Text>
+              {completedDays.map((day, i) => (
+                <View key={i} style={styles.completedDayRow}>
+                  <Text style={styles.completedDayLabel}>{day.dayLabel}</Text>
+                  <Text style={styles.completedDayExercises}>
+                    {day.exercises && day.exercises.length > 0
+                      ? day.exercises.join(', ')
+                      : day.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -524,8 +681,12 @@ export default function Train() {
             <View style={{ flex: 1 }}>
               <Text style={styles.pendingName}>{ex.exerciseName}</Text>
               <Text style={styles.pendingMeta}>
-                {MUSCLE_LABELS[ex.muscleGroup] || ex.muscleGroup} · {ex.repRangeLow}-{ex.repRangeHigh} reps
+                {MUSCLE_LABELS[ex.muscleGroup] || ex.muscleGroup}
+                {ex.prescription ? ' · Prescribed' : ` · ${ex.repRangeLow}-${ex.repRangeHigh} reps`}
               </Text>
+              {ex.adjustmentNote && (
+                <Text style={styles.adjustmentNote}>{ex.adjustmentNote}</Text>
+              )}
             </View>
             <View style={styles.setsControl}>
               <TouchableOpacity
@@ -562,6 +723,21 @@ export default function Train() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View>
+              {today.dayOptions && today.dayOptions.length > 1 && (
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={() => {
+                    setBuildMode(false);
+                    setChoosingDay(true);
+                    setChosenDay(null);
+                    setPendingExercises([]);
+                    setSelectedMuscle(null);
+                    setExerciseSearch('');
+                  }}
+                >
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+              )}
               <Text style={styles.mesoLabel}>Week {today.weekNumber} · RIR {today.targetRir}</Text>
               <Text style={styles.dayLabelText}>{today.dayLabel}</Text>
               <Text style={styles.buildSubtitle}>Build your workout by adding exercises</Text>
@@ -655,6 +831,80 @@ export default function Train() {
                 <Text style={{ color: COLORS.text_tertiary, fontSize: 13, textAlign: 'center', marginTop: SPACING.xl }}>
                   Search or tap a muscle group to browse exercises
                 </Text>
+              )}
+
+              {/* Create Custom Exercise */}
+              <TouchableOpacity
+                style={styles.createExerciseToggle}
+                onPress={() => setShowCreateExercise(!showCreateExercise)}
+              >
+                <Text style={styles.createExerciseToggleText}>
+                  {showCreateExercise ? '− Cancel' : '+ Create Custom Exercise'}
+                </Text>
+              </TouchableOpacity>
+
+              {showCreateExercise && (
+                <View style={styles.createExerciseForm}>
+                  <TextInput
+                    style={styles.createExerciseInput}
+                    placeholder="Exercise name"
+                    placeholderTextColor={COLORS.text_tertiary}
+                    value={newExercise.name}
+                    onChangeText={(text) => setNewExercise({ ...newExercise, name: text })}
+                    autoCapitalize="words"
+                  />
+
+                  <Text style={styles.createExerciseLabel}>Muscle Group</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
+                    <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+                      {Object.entries(MUSCLE_LABELS).map(([key, label]) => (
+                        <TouchableOpacity
+                          key={key}
+                          style={[styles.muscleChip, newExercise.primaryMuscle === key && styles.muscleChipSelected]}
+                          onPress={() => setNewExercise({ ...newExercise, primaryMuscle: key })}
+                        >
+                          <Text style={[styles.muscleChipText, newExercise.primaryMuscle === key && styles.muscleChipTextSelected]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+
+                  <Text style={styles.createExerciseLabel}>Equipment</Text>
+                  <View style={styles.createExerciseOptions}>
+                    {['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight'].map((eq) => (
+                      <TouchableOpacity
+                        key={eq}
+                        style={[styles.optionChip, newExercise.equipment === eq && styles.optionChipSelected]}
+                        onPress={() => setNewExercise({ ...newExercise, equipment: eq })}
+                      >
+                        <Text style={[styles.optionChipText, newExercise.equipment === eq && styles.optionChipTextSelected]}>
+                          {eq.charAt(0).toUpperCase() + eq.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.createExerciseLabel}>Movement Type</Text>
+                  <View style={styles.createExerciseOptions}>
+                    {(['compound', 'isolation'] as const).map((mt) => (
+                      <TouchableOpacity
+                        key={mt}
+                        style={[styles.optionChip, newExercise.movementType === mt && styles.optionChipSelected]}
+                        onPress={() => setNewExercise({ ...newExercise, movementType: mt })}
+                      >
+                        <Text style={[styles.optionChipText, newExercise.movementType === mt && styles.optionChipTextSelected]}>
+                          {mt.charAt(0).toUpperCase() + mt.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity style={styles.createExerciseBtn} onPress={createCustomExercise}>
+                    <Text style={styles.createExerciseBtnText}>Create & Add</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           }
@@ -756,7 +1006,7 @@ export default function Train() {
                     <View style={styles.setDetails}>
                       <View style={styles.setDetail}>
                         <Text style={styles.setDetailLabel}>WEIGHT</Text>
-                        <Text style={styles.setDetailValue}>{set.actualWeightKg != null ? `${set.actualWeightKg}` : '—'}</Text>
+                        <Text style={styles.setDetailValue}>{set.actualWeightKg != null ? `${kgToLbs(set.actualWeightKg)}` : '—'}</Text>
                       </View>
                       <View style={styles.setDetail}>
                         <Text style={styles.setDetailLabel}>REPS</Text>
@@ -1021,22 +1271,130 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Day picker
-  dayOptionCard: {
-    padding: SPACING.lg,
+  // Back button
+  backBtn: {
+    marginBottom: SPACING.md,
+  },
+  backBtnText: {
+    color: COLORS.accent_primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Day picker — Next Up card
+  nextUpCard: {
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.accent_primary,
+    padding: SPACING.xl,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  nextUpLabel: {
+    color: COLORS.accent_primary,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: SPACING.xs,
+  },
+  nextUpTitle: {
+    color: COLORS.text_primary,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  },
+  nextUpMuscles: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    marginBottom: SPACING.lg,
+  },
+  startWorkoutBtn: {
+    backgroundColor: COLORS.accent_primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  startWorkoutBtnText: {
+    color: COLORS.text_on_accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Day picker — weekly progress
+  weekProgressSection: {
+    marginBottom: SPACING.lg,
+  },
+  weekProgressTitle: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: SPACING.md,
+  },
+  weekDayPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  weekDayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+  },
+  weekDayPillDone: {
+    borderColor: COLORS.success,
+    backgroundColor: COLORS.success_subtle,
+  },
+  weekDayPillNext: {
+    borderColor: COLORS.accent_primary,
+  },
+  weekDayPillText: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  weekDayPillTextDone: {
+    color: COLORS.success,
+  },
+  weekDayPillTextNext: {
+    color: COLORS.accent_primary,
+  },
+  weekDayPillCheck: {
+    color: COLORS.success,
+    fontSize: 12,
+    marginLeft: SPACING.xs,
+  },
+
+  // Day picker — completed section
+  completedSection: {
     backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
+    padding: SPACING.lg,
+  },
+  completedSectionTitle: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: SPACING.md,
+  },
+  completedDayRow: {
     marginBottom: SPACING.sm,
   },
-  dayOptionTitle: {
+  completedDayLabel: {
     color: COLORS.text_primary,
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  dayOptionMuscles: {
+  completedDayExercises: {
     color: COLORS.text_tertiary,
     fontSize: 13,
   },
@@ -1075,6 +1433,11 @@ const styles = StyleSheet.create({
     color: COLORS.text_tertiary,
     fontSize: 11,
     marginTop: 2,
+  },
+  adjustmentNote: {
+    color: COLORS.warning,
+    fontSize: 11,
+    marginTop: 4,
   },
   setsControl: {
     flexDirection: 'row',
@@ -1170,6 +1533,76 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
     textTransform: 'capitalize',
+  },
+
+  // Create custom exercise
+  createExerciseToggle: {
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  createExerciseToggleText: {
+    color: COLORS.accent_primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  createExerciseForm: {
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    padding: SPACING.lg,
+    marginTop: SPACING.sm,
+  },
+  createExerciseInput: {
+    backgroundColor: COLORS.bg_input,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    color: COLORS.text_primary,
+    fontSize: 15,
+    marginBottom: SPACING.md,
+  },
+  createExerciseLabel: {
+    color: COLORS.text_secondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  createExerciseOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  optionChip: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  optionChipSelected: {
+    borderColor: COLORS.accent_primary,
+    backgroundColor: COLORS.accent_subtle,
+  },
+  optionChipText: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+  },
+  optionChipTextSelected: {
+    color: COLORS.accent_primary,
+  },
+  createExerciseBtn: {
+    backgroundColor: COLORS.accent_primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  createExerciseBtnText: {
+    color: COLORS.text_on_accent,
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // Bottom bar

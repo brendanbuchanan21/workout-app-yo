@@ -64,7 +64,7 @@ export const SPLIT_DAY_LABELS: Record<string, string[]> = {
 };
 
 /**
- * Calculate volume (sets) for a given week within a mesocycle.
+ * Calculate volume (sets) for a given week within a training block.
  * Week 1 = base volume, increases ~1-2 sets per week, deload = 50%.
  */
 export function getSetsForWeek(
@@ -85,7 +85,7 @@ export function getSetsForWeek(
 
 /**
  * Get target RIR for a given week.
- * Uses mesocycle config for starting RIR, floor, decrement, and deload RIR.
+ * Uses training block config for starting RIR, floor, decrement, and deload RIR.
  * See resources/rir-progression-model.md for research basis.
  */
 export interface RirConfig {
@@ -120,7 +120,7 @@ export function getRirForWeek(
 
 /**
  * Get day labels for a split type trimmed to the number of training days.
- * For custom splits, pass customDays from the mesocycle.
+ * For custom splits, pass customDays from the training block.
  */
 export function getDayLabels(
   splitType: string,
@@ -136,7 +136,7 @@ export function getDayLabels(
 
 /**
  * Get muscle groups for a specific day index within a split.
- * For custom splits, pass customDays from the mesocycle.
+ * For custom splits, pass customDays from the training block.
  */
 export function getMuscleGroupsForDay(
   splitType: string,

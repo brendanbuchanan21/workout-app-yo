@@ -1,19 +1,26 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../../src/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Home: '~',
-    Train: '#',
-    Nutrition: '%',
-    Progress: '^',
+  const icons: Record<string, string | React.ReactNode> = {
+    Home: <Ionicons name="home" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
+    Train: <Ionicons name="barbell-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
+    Nutrition: <Ionicons name="nutrition" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
+    Progress: <Ionicons name="bar-chart" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
   };
   return (
     <View style={styles.tabIcon}>
-      <Text style={[styles.iconText, focused && styles.iconTextActive]}>
+      {typeof icons[label] === 'string' ? (
+        <Text style={[styles.iconText, focused && styles.iconTextActive]}>
         {icons[label] || '*'}
       </Text>
+      ) :
+      (
+        icons[label]
+      )}
+      
     </View>
   );
 }

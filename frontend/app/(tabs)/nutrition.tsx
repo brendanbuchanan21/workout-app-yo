@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
+import MacroBar from '../../src/components/Nutrition/MacroBar';
 
 interface Meal {
   id: string;
@@ -68,22 +69,13 @@ export default function Nutrition() {
     setShowLogForm(false);
   };
 
-  const MacroBar = ({ label, current, target, color }: { label: string; current: number; target: number; color: string }) => {
-    const pct = Math.min((current / target) * 100, 100);
-    return (
-      <View style={styles.macroBarRow}>
-        <View style={styles.macroBarLabelRow}>
-          <Text style={styles.macroBarLabel}>{label}</Text>
-          <Text style={styles.macroBarValues}>
-            {Math.round(current)} <Text style={{ color: COLORS.text_tertiary }}>/ {target}</Text>
-          </Text>
-        </View>
-        <View style={styles.macroBarBg}>
-          <View style={[styles.macroBarFill, { width: `${pct}%`, backgroundColor: color }]} />
-        </View>
-      </View>
-    );
-  };
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.screenTitle}>Coming soon...</Text>
+      </ScrollView>
+    </SafeAreaView>
+  )
 
   return (
     <SafeAreaView style={styles.container}>
@@ -182,15 +174,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg_primary,
+    justifyContent: 'center'
   },
   scroll: {
     padding: SPACING.xl,
+    textAlign: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: '700',
     color: COLORS.text_primary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   dateText: {
     fontSize: 13,
@@ -205,32 +202,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
     marginBottom: SPACING.xl,
     gap: SPACING.md,
-  },
-  macroBarRow: {
-    gap: 4,
-  },
-  macroBarLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  macroBarLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  macroBarValues: {
-    color: COLORS.text_primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  macroBarBg: {
-    height: 6,
-    backgroundColor: COLORS.bg_input,
-    borderRadius: 3,
-  },
-  macroBarFill: {
-    height: 6,
-    borderRadius: 3,
   },
   mealCard: {
     padding: SPACING.md,

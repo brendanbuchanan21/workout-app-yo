@@ -3,10 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import Svg, { Circle } from 'react-native-svg';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
+import MacroRing from '../../src/components/Home/MacroRing';
 
 interface NutritionPhase {
   phaseType: string;
@@ -17,7 +17,7 @@ interface NutritionPhase {
 }
 
 interface TodayContext {
-  mesocycleId: string;
+  trainingBlockId: string;
   weekNumber: number;
   dayIndex: number;
   dayLabel: string;
@@ -27,7 +27,7 @@ interface TodayContext {
   setupMethod: string | null;
 }
 
-interface ActiveMesocycle {
+interface ActiveTrainingBlock {
   id: string;
   splitType: string;
   setupMethod: string | null;
@@ -35,55 +35,6 @@ interface ActiveMesocycle {
   lengthWeeks: number;
   daysPerWeek: number;
   workoutSessions: any[];
-}
-
-function MacroRing({
-  label,
-  current,
-  target,
-  color,
-  size = 64,
-}: {
-  label: string;
-  current: number;
-  target: number;
-  color: string;
-  size?: number;
-}) {
-  const pct = target > 0 ? Math.min(current / target, 1) : 0;
-  const radius = (size - 8) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - pct);
-
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={COLORS.bg_input}
-          strokeWidth={4}
-        />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={4}
-          strokeDasharray={`${circumference}`}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-        />
-      </Svg>
-      <Text style={styles.ringLabel}>{label}</Text>
-      <Text style={styles.ringValue}>
-        {current}<Text style={styles.ringTarget}>/{target}</Text>
-      </Text>
-    </View>
-  );
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -103,15 +54,15 @@ export default function Dashboard() {
   const router = useRouter();
   const [phase, setPhase] = useState<NutritionPhase | null>(null);
   const [today, setToday] = useState<TodayContext | null>(null);
-  const [mesocycle, setMesocycle] = useState<ActiveMesocycle | null>(null);
+  const [trainingBlock, setTrainingBlock] = useState<ActiveTrainingBlock | null>(null);
   const [loading, setLoading] = useState(true);
   const [todayNutrition, setTodayNutrition] = useState({ calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
 
   const loadDashboard = async () => {
     try {
-      const [userRes, mesoRes, todayRes] = await Promise.all([
+      const [userRes, blockRes, todayRes] = await Promise.all([
         apiGet('/user/me'),
-        apiGet('/training/mesocycle/active'),
+        apiGet('/training/block/active'),
         apiGet('/training/today'),
       ]);
 
@@ -120,9 +71,9 @@ export default function Dashboard() {
         if (userData.nutritionPhase) setPhase(userData.nutritionPhase);
       }
 
-      if (mesoRes.ok) {
-        const mesoData = await mesoRes.json();
-        setMesocycle(mesoData.mesocycle);
+      if (blockRes.ok) {
+        const blockData = await blockRes.json();
+        setTrainingBlock(blockData.trainingBlock);
       }
 
       if (todayRes.ok) {
@@ -145,14 +96,14 @@ export default function Dashboard() {
 
   // Determine workout card content
   const getWorkoutInfo = () => {
-    if (!today || !mesocycle) {
+    if (!today || !trainingBlock) {
       return { title: 'No active plan', subtitle: 'Set up your training to get started', isEmpty: true };
     }
 
-    const setupMethod = mesocycle.setupMethod || today.setupMethod;
+    const setupMethod = trainingBlock.setupMethod || today.setupMethod;
 
     // Count today's sessions
-    const todaySessions = mesocycle.workoutSessions?.filter(
+    const todaySessions = trainingBlock.workoutSessions?.filter(
       (s: any) => s.weekNumber === today.weekNumber && s.dayLabel === today.dayLabel
     ) || [];
     const hasPlannedSession = todaySessions.length > 0;
@@ -169,7 +120,7 @@ export default function Dashboard() {
       }
       return {
         title: 'Choose Your Workout',
-        subtitle: `${mesocycle.daysPerWeek - (today as any).dayIndex} sessions left this week`,
+        subtitle: `${trainingBlock.daysPerWeek - (today as any).dayIndex} sessions left this week`,
         isEmpty: false,
         isBuildable: true,
       };
@@ -195,7 +146,7 @@ export default function Dashboard() {
 
   const workoutInfo = getWorkoutInfo();
   const phaseLabel = phase ? PHASE_LABELS[phase.phaseType] || phase.phaseType.toUpperCase() : 'TRAINING';
-  const weekLabel = mesocycle ? `WEEK ${mesocycle.currentWeek}` : '';
+  const weekLabel = trainingBlock ? `WEEK ${trainingBlock.currentWeek}` : '';
 
   const macroTargets = phase || { currentCalories: 0, currentProteinG: 0, currentCarbsG: 0, currentFatG: 0 };
 
@@ -325,20 +276,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     marginBottom: SPACING.lg,
-  },
-  ringLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 10,
-    marginTop: 4,
-  },
-  ringValue: {
-    color: COLORS.text_primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  ringTarget: {
-    color: COLORS.text_tertiary,
-    fontWeight: '400',
   },
   workoutCard: {
     padding: SPACING.lg,

@@ -27,8 +27,8 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    // Check if user has an active mesocycle
-    const activeMesocycle = await prisma.mesocycle.findFirst({
+    // Check if user has an active training block
+    const activeBlock = await prisma.trainingBlock.findFirst({
       where: { userId: req.userId!, status: 'active' },
       select: { id: true, splitType: true, setupMethod: true },
     });
@@ -46,7 +46,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response) => {
     });
 
     res.json({
-      user: { ...user, hasActiveMesocycle: !!activeMesocycle },
+      user: { ...user, hasActiveTrainingBlock: !!activeBlock },
       nutritionPhase,
     });
   } catch (error) {

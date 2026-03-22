@@ -7,65 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
+import { WorkoutSummary } from '../src/types/workoutSummary';
+import { formatDuration, formatWeight, formatTonnage } from '../src/utils/workoutFormatters';
 
-interface PR {
-  exerciseName: string;
-  weightKg: number;
-  reps: number;
-  previousBestReps: number | null;
-}
-
-interface ExerciseBest {
-  exerciseName: string;
-  weight: number;
-  reps: number | null;
-}
-
-interface SessionTonnage {
-  date: string;
-  tonnage: number;
-}
-
-interface WorkoutSummary {
-  totalSets: number;
-  volumeByMuscle: Record<string, number>;
-  tonnage: number;
-  durationSeconds: number;
-  completionRate: number;
-  prs: PR[];
-  perExerciseBest: ExerciseBest[];
-  mesoComparison: {
-    sessionTonnages: SessionTonnage[];
-    totalMesoSets: number;
-    sessionsCompleted: number;
-  };
-}
-
-function formatDuration(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  return `${mins}m`;
-}
-
-function formatWeight(kg: number, unit: string): string {
-  if (unit === 'imperial') {
-    return `${Math.round(kg * 2.20462)} lbs`;
-  }
-  return `${Math.round(kg)} kg`;
-}
-
-function formatTonnage(kg: number, unit: string): string {
-  if (unit === 'imperial') {
-    const lbs = kg * 2.20462;
-    if (lbs >= 1000) return `${(lbs / 1000).toFixed(1)}k lbs`;
-    return `${Math.round(lbs)} lbs`;
-  }
-  if (kg >= 1000) return `${(kg / 1000).toFixed(1)}k kg`;
-  return `${Math.round(kg)} kg`;
-}
-
-export default function WorkoutSummary() {
+export default function WorkoutSummaryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ summary: string; dayLabel: string; weekNumber: string }>();
   const [summary, setSummary] = useState<WorkoutSummary | null>(null);
@@ -92,7 +37,7 @@ export default function WorkoutSummary() {
   }
 
   const hasPRs = summary.prs.length > 0;
-  const tonnageHistory = summary.mesoComparison.sessionTonnages;
+  const tonnageHistory = summary.blockComparison.sessionTonnages;
   const maxTonnage = Math.max(...tonnageHistory.map((t) => t.tonnage), 1);
 
   return (
@@ -188,12 +133,12 @@ export default function WorkoutSummary() {
             ))}
         </View>
 
-        {/* Meso Comparison */}
+        {/* Block Comparison */}
         {tonnageHistory.length > 1 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Mesocycle Progress</Text>
-            <Text style={styles.mesoSubtitle}>
-              Session {summary.mesoComparison.sessionsCompleted} · {summary.mesoComparison.totalMesoSets} total sets
+            <Text style={styles.sectionTitle}>Training Block Progress</Text>
+            <Text style={styles.blockSubtitle}>
+              Session {summary.blockComparison.sessionsCompleted} · {summary.blockComparison.totalBlockSets} total sets
             </Text>
             <View style={styles.tonnageChart}>
               {tonnageHistory.map((t, i) => {
@@ -379,7 +324,7 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
     textAlign: 'right',
   },
-  mesoSubtitle: {
+  blockSubtitle: {
     fontSize: 13,
     color: COLORS.text_tertiary,
     marginBottom: SPACING.md,

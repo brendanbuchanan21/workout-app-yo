@@ -18,11 +18,29 @@ cd backend && npm run dev          # Express on :3000
 npm run db:migrate                 # Prisma migrations
 npm run db:seed                    # Seed 90 exercises + 5 templates
 
-# Frontend
-cd frontend && npm start           # Expo dev server
+# Frontend (iOS Simulator)
+cd frontend && npx expo run:ios    # Compiles native shell, boots simulator, starts Metro
 
-# Database
-docker start workout-db            # postgres:16, port 5432
+# Database (OrbStack — primary)
+docker start workout-db            # Start existing container
+docker ps                          # Verify it's running
+docker logs workout-db             # Check logs if issues
+
+# Database (Docker Desktop — fallback)
+# 1. Quit OrbStack:  osascript -e 'quit app "OrbStack"'
+# 2. Open Docker Desktop:  open -a "Docker Desktop"
+# 3. Wait for it to fully start, then:
+docker start workout-db            # Same command, different runtime
+
+# Switching back to OrbStack:
+# 1. Quit Docker Desktop:  osascript -e 'quit app "Docker Desktop"'
+# 2. Open OrbStack:  open -a "OrbStack"
+# 3. docker start workout-db
+
+# Create container from scratch (if needed):
+# docker run -d --name workout-db -p 5432:5432 \
+#   -e POSTGRES_USER=workout -e POSTGRES_PASSWORD=workout \
+#   -e POSTGRES_DB=workout postgres:16
 ```
 
 ## Backend Conventions
@@ -37,7 +55,7 @@ docker start workout-db            # postgres:16, port 5432
 ### Zod Validation
 
 - Define schemas as **module-level constants** (not inline in handlers)
-- Name them `<action><Entity>Schema` (e.g., `createMesocycleSchema`, `logSetSchema`)
+- Name them `<action><Entity>Schema` (e.g., `createBlockSchema`, `logSetSchema`)
 - Validate with `schema.parse(req.body)` at the top of the handler
 
 ### Error Handling
@@ -61,7 +79,7 @@ try {
 
 ### Response Shape
 
-- **Success (single):** `{ entity: data }` — e.g., `{ exercise }`, `{ mesocycle }`
+- **Success (single):** `{ entity: data }` — e.g., `{ exercise }`, `{ trainingBlock }`
 - **Success (list):** `{ entities: [] }` — e.g., `{ exercises }`, `{ templates }`
 - **Create:** status `201`
 - **Error:** `{ error: string, details?: any }`
@@ -72,6 +90,15 @@ try {
 - Import client from `utils/prisma` (singleton)
 - JSON fields (`volumeTargets`, `customDays`, etc.) are typed with `as` casts — this is acceptable
 - Always include `orderBy` on list queries for deterministic results
+
+## File Size & Component Extraction
+
+- **Max 300 LOC per file** — if a file exceeds this, break it up
+- **Screen files** (`app/`) should be thin orchestrators — state, data fetching, and layout only
+- **Extract components** into `src/components/<Domain>/` (e.g., `src/components/Training/SetRow.tsx`)
+- **Extract hooks** into `src/hooks/` when logic is reused or a screen's hook section exceeds ~30 lines (e.g., `useTrainingSession.ts`)
+- **Extract helpers** into `src/utils/` for pure functions that don't depend on React
+- **Backend routes** that grow large should move business logic into `src/services/`
 
 ## Frontend Conventions
 

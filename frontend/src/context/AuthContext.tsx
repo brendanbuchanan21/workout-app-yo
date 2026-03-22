@@ -7,7 +7,7 @@ interface User {
   displayName?: string;
   experienceLevel?: string;
   daysPerWeek?: number;
-  hasActiveMesocycle?: boolean;
+  hasActiveTrainingBlock?: boolean;
 }
 
 interface AuthState {

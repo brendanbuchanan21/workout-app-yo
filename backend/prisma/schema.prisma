@@ -30,7 +30,7 @@ model User {
   bodyWeights       BodyWeight[]
   nutritionLogs     NutritionLog[]
   workoutSessions   WorkoutSession[]
-  mesocycles        Mesocycle[]
+  trainingBlocks    TrainingBlock[]
   nutritionPhases   NutritionPhase[]
   weeklyCheckIns    WeeklyCheckIn[]
   progressPhotos    ProgressPhoto[]
@@ -146,12 +146,12 @@ model ProgramTemplate {
   createdAt   DateTime @default(now())
 }
 
-model Mesocycle {
+model TrainingBlock {
   id              String   @id @default(uuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id])
   status          String   @default("active")
-  mesocycleNumber Int
+  blockNumber     Int
   startDate       DateTime @db.Date
   endDate         DateTime? @db.Date
   lengthWeeks     Int      @default(5)
@@ -174,12 +174,15 @@ model Mesocycle {
   workoutSessions WorkoutSession[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+
+
 }
 
 model WorkoutSession {
   id            String   @id @default(uuid())
-  mesocycleId   String
-  mesocycle     Mesocycle @relation(fields: [mesocycleId], references: [id])
+  trainingBlockId String
+  trainingBlock   TrainingBlock @relation(fields: [trainingBlockId], references: [id])
   userId        String
   user          User     @relation(fields: [userId], references: [id])
   date          DateTime @db.Date

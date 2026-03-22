@@ -16,7 +16,7 @@ export default function Index() {
     } else if (!user.displayName) {
       // Not onboarded yet
       router.replace('/auth/onboarding');
-    } else if (!user.hasActiveMesocycle) {
+    } else if (!user.hasActiveTrainingBlock) {
       // Onboarded but no training plan yet
       router.replace('/training-setup');
     } else {

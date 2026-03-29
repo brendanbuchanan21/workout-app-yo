@@ -1,12 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 
 import { apiGet, apiPost } from '../../src/utils/api';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 import PRsTab from '../../src/components/Progress/PRsTab';
 import StrengthTab from '../../src/components/Progress/StrengthTab';
@@ -19,18 +21,6 @@ interface WeightEntry {
   weight: number;
 }
 
-interface PRRecord {
-  weightKg: number;
-  reps: number;
-  date: string;
-}
-
-interface PREntry {
-  exerciseName: string;
-  catalogId: string | null;
-  records: PRRecord[];
-}
-
 interface VolumeWeek {
   weekStart: string;
   muscles: Record<string, number>;
@@ -41,103 +31,75 @@ interface ActivityDay {
   labels: string[];
 }
 
-interface ExerciseHistoryPoint {
-  date: string;
-  bestWeightKg: number;
-  bestReps: number;
-  e1rmKg: number;
-}
-
-interface ExerciseHistory {
-  exerciseName: string;
-  catalogId: string | null;
-  history: ExerciseHistoryPoint[];
-}
-
 type TabKey = 'prs' | 'strength' | 'volume' | 'activity' | 'weight';
 
 export default function Progress() {
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('prs');
-
-  const [prs, setPrs] = useState<PREntry[]>([]);
-  const [expandedPR, setExpandedPR] = useState<string | null>(null);
-
-  const [volumeWeeks, setVolumeWeeks] = useState<VolumeWeek[]>([]);
-  const [currentVolume, setCurrentVolume] = useState<Record<string, number>>({});
-  const [volumeTargets, setVolumeTargets] = useState<Record<string, number>>({});
-
-  const [exerciseHistories, setExerciseHistories] = useState<ExerciseHistory[]>([]);
-  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
-
-  const [activity, setActivity] = useState<Record<string, ActivityDay>>({});
-
-  const [entries, setEntries] = useState<WeightEntry[]>([]);
   const [newWeight, setNewWeight] = useState('');
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [prsRes, weightRes, volumeHistRes, volumeSumRes, activityRes, exHistRes] = await Promise.all([
-        apiGet('/training/prs'),
-        apiGet('/weight'),
-        apiGet('/training/volume-history'),
-        apiGet('/training/volume-summary'),
-        apiGet('/training/activity'),
-        apiGet('/training/exercise-history'),
-      ]);
+  const weightQuery = useQuery({
+    queryKey: ['weight'],
+    queryFn: async () => {
+      const res = await apiGet('/weight');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.entries?.map((e: any) => ({
+        date: e.date.split('T')[0],
+        weight: Math.round(e.weightKg * 2.20462 * 10) / 10,
+      })) || []) as WeightEntry[];
+    },
+  });
 
-      if (prsRes.ok) {
-        const data = await prsRes.json();
-        setPrs(data.prs);
-      }
+  const volumeHistoryQuery = useQuery({
+    queryKey: ['training', 'volume-history'],
+    queryFn: async () => {
+      const res = await apiGet('/training/volume-history');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.weeks || []) as VolumeWeek[];
+    },
+  });
 
-      if (weightRes.ok) {
-        const data = await weightRes.json();
-        setEntries(data.entries?.map((e: any) => ({
-          date: e.date.split('T')[0],
-          weight: Math.round(e.weightKg * 2.20462 * 10) / 10,
-        })) || []);
-      }
+  const volumeSummaryQuery = useQuery({
+    queryKey: ['training', 'volume-summary'],
+    queryFn: async () => {
+      const res = await apiGet('/training/volume-summary');
+      if (!res.ok) return { completed: {}, targets: {} };
+      const data = await res.json();
+      return {
+        completed: (data.volumeCompleted || {}) as Record<string, number>,
+        targets: (data.volumeTargets || {}) as Record<string, number>,
+      };
+    },
+  });
 
-      if (volumeHistRes.ok) {
-        const data = await volumeHistRes.json();
-        setVolumeWeeks(data.weeks || []);
-      }
+  const activityQuery = useQuery({
+    queryKey: ['training', 'activity'],
+    queryFn: async () => {
+      const res = await apiGet('/training/activity');
+      if (!res.ok) return {};
+      const data = await res.json();
+      return (data.activity || {}) as Record<string, ActivityDay>;
+    },
+  });
 
-      if (volumeSumRes.ok) {
-        const data = await volumeSumRes.json();
-        setCurrentVolume(data.volumeCompleted || {});
-        setVolumeTargets(data.volumeTargets || {});
-      }
+  useRefreshOnFocus(() => {
+    weightQuery.refetch();
+    volumeHistoryQuery.refetch();
+    volumeSummaryQuery.refetch();
+    activityQuery.refetch();
+  });
 
-      if (activityRes.ok) {
-        const data = await activityRes.json();
-        setActivity(data.activity || {});
-      }
+  const loading = weightQuery.isLoading || volumeHistoryQuery.isLoading
+    || volumeSummaryQuery.isLoading || activityQuery.isLoading;
 
-      if (exHistRes.ok) {
-        const data = await exHistRes.json();
-        setExerciseHistories(data.exercises || []);
-      }
-    } catch (err) {
-      console.error('Progress load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
-  );
-
-  const togglePR = (pr: PREntry) => {
-    const key = pr.catalogId || pr.exerciseName;
-    setExpandedPR(expandedPR === key ? null : key);
-  };
-
+  const entries = weightQuery.data ?? [];
+  const volumeWeeks = volumeHistoryQuery.data ?? [];
+  const currentVolume = volumeSummaryQuery.data?.completed ?? {};
+  const volumeTargets = volumeSummaryQuery.data?.targets ?? {};
+  const activity = activityQuery.data ?? {};
   const handleLogWeight = async () => {
     const w = parseFloat(newWeight);
     if (isNaN(w) || w <= 0) {
@@ -150,7 +112,7 @@ export default function Progress() {
       const res = await apiPost('/weight', { date: today, weightKg });
       if (res.ok) {
         setNewWeight('');
-        loadData();
+        queryClient.invalidateQueries({ queryKey: ['weight'] });
       }
     } catch (err) {
       console.error('Log weight error:', err);
@@ -178,7 +140,6 @@ export default function Progress() {
             ['strength', 'Strength'],
             ['volume', 'Volume'],
             ['activity', 'Activity'],
-            ['weight', 'Weight'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <TouchableOpacity
               key={key}
@@ -190,8 +151,14 @@ export default function Progress() {
           ))}
         </View>
 
-        {tab === 'prs' && <PRsTab prs={prs} expandedPR={expandedPR} togglePR={togglePR} />}
-        {tab === 'strength' && <StrengthTab exerciseHistories={exerciseHistories} expandedExercise={expandedExercise} setExpandedExercise={setExpandedExercise} />}
+        {tab === 'prs' && <PRsTab />}
+        {tab === 'strength' && (
+              <StrengthTab
+                onViewDetail={(catalogId, exerciseName) =>
+                  router.push({ pathname: '/exercise-detail', params: { catalogId, exerciseName } })
+                }
+              />
+            )}
         {tab === 'volume' && <VolumeTab currentVolume={currentVolume} volumeTargets={volumeTargets} volumeWeeks={volumeWeeks} />}
         {tab === 'activity' && <ActivityTab activity={activity} />}
         {tab === 'weight' && <WeightTab entries={entries} newWeight={newWeight} setNewWeight={setNewWeight} handleLogWeight={handleLogWeight} />}

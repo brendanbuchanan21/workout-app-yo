@@ -1,26 +1,14 @@
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
+import { useQuery } from '@tanstack/react-query';
 
+import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
-
-interface ExerciseHistoryPoint {
-  date: string;
-  bestWeightKg: number;
-  bestReps: number;
-  e1rmKg: number;
-}
-
-interface ExerciseHistory {
-  exerciseName: string;
-  catalogId: string | null;
-  history: ExerciseHistoryPoint[];
-}
-
-interface StrengthTabProps {
-  exerciseHistories: ExerciseHistory[];
-  expandedExercise: string | null;
-  setExpandedExercise: (key: string | null) => void;
-}
+import { ALL_MUSCLE_GROUPS, EQUIPMENT_ORDER, EQUIPMENT_LABELS } from '../../constants/training';
+import { EnrichedExerciseHistory } from '../../types/training';
+import PRSearchBar from './PRSearchBar';
+import MuscleGroupPills from './MuscleGroupPills';
 
 function formatWeight(kg: number): string {
   return `${Math.round(kg * 2.20462)} lbs`;
@@ -28,7 +16,7 @@ function formatWeight(kg: number): string {
 
 const screenWidth = Dimensions.get('window').width;
 
-function renderE1rmChart(ex: ExerciseHistory) {
+function renderE1rmChart(ex: EnrichedExerciseHistory) {
   const chartWidth = screenWidth - SPACING.xl * 2 - SPACING.lg * 2;
   const chartHeight = 140;
   const padding = { top: 10, right: 10, bottom: 20, left: 45 };
@@ -95,17 +83,14 @@ function renderE1rmChart(ex: ExerciseHistory) {
   );
 }
 
-export default function StrengthTab({ exerciseHistories, expandedExercise, setExpandedExercise }: StrengthTabProps) {
-  if (exerciseHistories.length === 0) {
-    return (
-      <View style={styles.emptyState}>
-        <Text style={styles.emptyTitle}>No Strength Data</Text>
-        <Text style={styles.emptyText}>Complete workouts to see your estimated 1RM and exercise progression.</Text>
-      </View>
-    );
-  }
+interface ExerciseWithE1rm extends EnrichedExerciseHistory {
+  latestE1rm: number;
+  peakE1rm: number;
+  trending: number;
+}
 
-  const topE1rms = exerciseHistories
+function computeE1rmData(exercises: EnrichedExerciseHistory[]): ExerciseWithE1rm[] {
+  return exercises
     .map((ex) => {
       const latest = ex.history[ex.history.length - 1];
       const peak = ex.history.reduce((max, h) => h.e1rmKg > max.e1rmKg ? h : max, ex.history[0]);
@@ -119,70 +104,246 @@ export default function StrengthTab({ exerciseHistories, expandedExercise, setEx
       };
     })
     .sort((a, b) => b.peakE1rm - a.peakE1rm);
+}
 
+function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail }: {
+  ex: ExerciseWithE1rm;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onViewDetail?: (catalogId: string, exerciseName: string) => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onToggle}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardName}>{ex.exerciseName}</Text>
+          <Text style={styles.cardMeta}>
+            {ex.history.length} session{ex.history.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        <View style={styles.cardBest}>
+          <Text style={styles.cardWeight}>{formatWeight(ex.latestE1rm)}</Text>
+          {ex.trending !== 0 && (
+            <Text style={[
+              styles.e1rmTrend,
+              { color: ex.trending > 0 ? COLORS.success : COLORS.danger },
+            ]}>
+              {ex.trending > 0 ? '+' : ''}{formatWeight(Math.abs(ex.trending))}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {isExpanded && (
+        <View style={styles.expanded}>
+          {ex.history.length > 1 && renderE1rmChart(ex)}
+
+          <Text style={[styles.historyLabel, { marginTop: SPACING.md }]}>Session History</Text>
+          {[...ex.history].reverse().slice(0, 10).map((h, i) => (
+            <View key={i} style={styles.recordRow}>
+              <Text style={styles.recordDate}>
+                {new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </Text>
+              <Text style={styles.recordWeight}>
+                {formatWeight(h.bestWeightKg)} x {h.bestReps}
+              </Text>
+              <Text style={styles.recordE1rm}>
+                e1RM: {formatWeight(h.e1rmKg)}
+              </Text>
+            </View>
+          ))}
+
+          {onViewDetail && ex.catalogId && (
+            <TouchableOpacity
+              style={styles.viewDetailBtn}
+              onPress={() => onViewDetail(ex.catalogId!, ex.exerciseName)}
+            >
+              <Text style={styles.viewDetailText}>View Details</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function ExerciseList({ exercises, expandedExercise, onToggle, onViewDetail }: {
+  exercises: ExerciseWithE1rm[];
+  expandedExercise: string | null;
+  onToggle: (key: string) => void;
+  onViewDetail?: (catalogId: string, exerciseName: string) => void;
+}) {
   return (
     <>
-      <Text style={styles.chartSubtitle}>Estimated 1RM per exercise (Epley formula)</Text>
-
-      {topE1rms.map((ex) => {
+      {exercises.map((ex) => {
         const key = ex.catalogId || ex.exerciseName;
-        const isExpanded = expandedExercise === key;
-
         return (
-          <TouchableOpacity
+          <ExerciseCard
             key={key}
-            style={styles.prCard}
-            onPress={() => setExpandedExercise(isExpanded ? null : key)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.prCardHeader}>
-              <View style={styles.prCardInfo}>
-                <Text style={styles.prCardName}>{ex.exerciseName}</Text>
-                <Text style={styles.prCardMeta}>
-                  {ex.history.length} session{ex.history.length !== 1 ? 's' : ''}
-                </Text>
-              </View>
-              <View style={styles.prCardBest}>
-                <Text style={styles.prCardWeight}>{formatWeight(ex.latestE1rm)}</Text>
-                {ex.trending !== 0 && (
-                  <Text style={[
-                    styles.e1rmTrend,
-                    { color: ex.trending > 0 ? COLORS.success : COLORS.danger },
-                  ]}>
-                    {ex.trending > 0 ? '+' : ''}{formatWeight(Math.abs(ex.trending))}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {isExpanded && (
-              <View style={styles.prCardExpanded}>
-                {ex.history.length > 1 && renderE1rmChart(ex)}
-
-                <Text style={[styles.strengthHistoryLabel, { marginTop: SPACING.md }]}>Session History</Text>
-                {[...ex.history].reverse().slice(0, 10).map((h, i) => (
-                  <View key={i} style={styles.prRecordRow}>
-                    <Text style={styles.prRecordDate}>
-                      {new Date(h.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </Text>
-                    <Text style={styles.prRecordWeight}>
-                      {formatWeight(h.bestWeightKg)} x {h.bestReps}
-                    </Text>
-                    <Text style={styles.prRecordReps}>
-                      e1RM: {formatWeight(h.e1rmKg)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </TouchableOpacity>
+            ex={ex}
+            isExpanded={expandedExercise === key}
+            onToggle={() => onToggle(key)}
+            onViewDetail={onViewDetail}
+          />
         );
       })}
     </>
   );
 }
 
+function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDetail }: {
+  exercises: ExerciseWithE1rm[];
+  expandedExercise: string | null;
+  onToggle: (key: string) => void;
+  onViewDetail?: (catalogId: string, exerciseName: string) => void;
+}) {
+  const byEquipment: Record<string, ExerciseWithE1rm[]> = {};
+  for (const ex of exercises) {
+    const eq = ex.equipment || 'unknown';
+    if (!byEquipment[eq]) byEquipment[eq] = [];
+    byEquipment[eq].push(ex);
+  }
+
+  const sortedEquipment = Object.keys(byEquipment).sort((a, b) => {
+    const ai = EQUIPMENT_ORDER.indexOf(a);
+    const bi = EQUIPMENT_ORDER.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  return (
+    <>
+      <Text style={styles.count}>
+        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+      </Text>
+      {sortedEquipment.map((eq) => (
+        <View key={eq} style={styles.equipmentSection}>
+          <Text style={styles.equipmentTitle}>
+            {EQUIPMENT_LABELS[eq] || eq}
+          </Text>
+          <ExerciseList
+            exercises={byEquipment[eq]}
+            expandedExercise={expandedExercise}
+            onToggle={onToggle}
+            onViewDetail={onViewDetail}
+          />
+        </View>
+      ))}
+    </>
+  );
+}
+
+interface StrengthTabProps {
+  onViewDetail?: (catalogId: string, exerciseName: string) => void;
+}
+
+export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
+
+  const historyQuery = useQuery({
+    queryKey: ['training', 'exercise-history'],
+    queryFn: async () => {
+      const res = await apiGet('/training/exercise-history');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.exercises || []) as EnrichedExerciseHistory[];
+    },
+  });
+
+  const exercises = historyQuery.data ?? [];
+
+  const availableMuscles = useMemo(() => {
+    const musclesWithData = new Set(exercises.map((e) => e.primaryMuscle));
+    return ALL_MUSCLE_GROUPS.filter((m) => musclesWithData.has(m));
+  }, [exercises]);
+
+  const allE1rms = useMemo(() => computeE1rmData(exercises), [exercises]);
+
+  const toggleExercise = (key: string) => {
+    setExpandedExercise(expandedExercise === key ? null : key);
+  };
+
+  if (historyQuery.isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={COLORS.accent_primary} />
+      </View>
+    );
+  }
+
+  if (exercises.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>No Strength Data</Text>
+        <Text style={styles.emptyText}>
+          Complete workouts to see your estimated 1RM and exercise progression.
+        </Text>
+      </View>
+    );
+  }
+
+  const searchActive = searchQuery.trim().length > 0;
+
+  const searchResults = searchActive
+    ? allE1rms.filter((e) =>
+        e.exerciseName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
+  const muscleFiltered = selectedMuscle
+    ? allE1rms.filter((e) => e.primaryMuscle === selectedMuscle)
+    : allE1rms;
+
+  return (
+    <View>
+      <PRSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+
+      {!searchActive && (
+        <MuscleGroupPills
+          muscles={availableMuscles}
+          selected={selectedMuscle}
+          onSelect={setSelectedMuscle}
+        />
+      )}
+
+      <Text style={styles.subtitle}>Estimated 1RM per exercise (Epley formula)</Text>
+
+      {searchActive ? (
+        <ExerciseList
+          exercises={searchResults}
+          expandedExercise={expandedExercise}
+          onToggle={toggleExercise}
+          onViewDetail={onViewDetail}
+        />
+      ) : selectedMuscle ? (
+        <EquipmentGroupedList
+          exercises={muscleFiltered}
+          expandedExercise={expandedExercise}
+          onToggle={toggleExercise}
+          onViewDetail={onViewDetail}
+        />
+      ) : (
+        <ExerciseList
+          exercises={allE1rms}
+          expandedExercise={expandedExercise}
+          onToggle={toggleExercise}
+          onViewDetail={onViewDetail}
+        />
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  loading: {
+    paddingVertical: SPACING.xxxl * 2,
+    alignItems: 'center',
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: SPACING.xxxl * 2,
@@ -198,13 +359,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  chartSubtitle: {
+  subtitle: {
     color: COLORS.text_tertiary,
     fontSize: 12,
     marginBottom: SPACING.md,
-    marginTop: -SPACING.sm,
   },
-  prCard: {
+  count: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+    marginBottom: SPACING.md,
+  },
+  equipmentSection: {
+    marginBottom: SPACING.lg,
+  },
+  equipmentTitle: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: SPACING.sm,
+  },
+  card: {
     backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
@@ -212,72 +388,84 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     marginBottom: SPACING.sm,
   },
-  prCardHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  prCardInfo: {
+  cardInfo: {
     flex: 1,
     marginRight: SPACING.md,
   },
-  prCardName: {
+  cardName: {
     color: COLORS.text_primary,
     fontSize: 15,
     fontWeight: '600',
   },
-  prCardMeta: {
+  cardMeta: {
     color: COLORS.text_tertiary,
     fontSize: 12,
     marginTop: 2,
   },
-  prCardBest: {
+  cardBest: {
     alignItems: 'flex-end',
   },
-  prCardWeight: {
+  cardWeight: {
     color: COLORS.accent_primary,
     fontSize: 18,
     fontWeight: '700',
-  },
-  prCardExpanded: {
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border_subtle,
-  },
-  prRecordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border_subtle,
-  },
-  prRecordWeight: {
-    color: COLORS.text_primary,
-    fontSize: 14,
-    fontWeight: '600',
-    width: 90,
-  },
-  prRecordReps: {
-    color: COLORS.accent_primary,
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  prRecordDate: {
-    color: COLORS.text_tertiary,
-    fontSize: 12,
   },
   e1rmTrend: {
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
-  strengthHistoryLabel: {
+  expanded: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border_subtle,
+  },
+  historyLabel: {
     color: COLORS.text_tertiary,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  recordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border_subtle,
+  },
+  recordDate: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+  },
+  recordWeight: {
+    color: COLORS.text_primary,
+    fontSize: 14,
+    fontWeight: '600',
+    width: 90,
+  },
+  recordE1rm: {
+    color: COLORS.accent_primary,
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  viewDetailBtn: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    backgroundColor: COLORS.accent_subtle,
+    borderRadius: RADIUS.sm,
+  },
+  viewDetailText: {
+    color: COLORS.accent_primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

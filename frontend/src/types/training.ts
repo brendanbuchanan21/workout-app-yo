@@ -45,3 +45,44 @@ export interface PendingExercise {
   prescription?: SetPrescription[];
   adjustmentNote?: string | null;
 }
+
+export interface ExerciseHistoryPoint {
+  date: string;
+  bestWeightKg: number;
+  bestReps: number;
+  e1rmKg: number;
+}
+
+export interface EnrichedExerciseHistory {
+  exerciseName: string;
+  catalogId: string | null;
+  primaryMuscle: string;
+  equipment: string;
+  history: ExerciseHistoryPoint[];
+}
+
+export interface PRRecord {
+  weightKg: number;
+  reps: number;
+  date: string;
+}
+
+export interface EnrichedPREntry {
+  exerciseName: string;
+  catalogId: string | null;
+  primaryMuscle: string;
+  equipment: string;
+  records: PRRecord[];
+}
+
+export interface PREvent {
+  exerciseName: string;
+  catalogId: string | null;
+  primaryMuscle: string;
+  equipment: string;
+  type: 'rep';
+  weightKg: number;
+  reps: number;
+  date: string;
+  previousBest: { reps: number } | null;
+}

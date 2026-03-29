@@ -2,6 +2,8 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { computePRFeed, computeEnrichedPRs } from '../services/prService';
+import { getExerciseDetail } from '../services/exerciseDetailService';
 
 const router = Router();
 
@@ -76,74 +78,10 @@ router.post('/exercises', requireAuth, async (req: AuthRequest, res: Response) =
   }
 });
 
-// Get all personal records for the user (best reps at each weight per exercise)
+// Get all personal records enriched with muscle group and equipment
 router.get('/prs', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const sets = await prisma.exerciseSet.findMany({
-      where: {
-        completed: true,
-        actualWeightKg: { not: null },
-        actualReps: { not: null },
-        exercise: {
-          workoutSession: {
-            userId: req.userId!,
-            completedAt: { not: null },
-          },
-        },
-      },
-      include: {
-        exercise: {
-          select: {
-            exerciseName: true,
-            catalogId: true,
-            workoutSession: { select: { date: true } },
-          },
-        },
-      },
-    });
-
-    // Group by exercise, then by weight — track best reps at each weight
-    const exerciseMap: Record<string, {
-      exerciseName: string;
-      catalogId: string | null;
-      records: Record<number, { reps: number; date: string }>;
-    }> = {};
-
-    for (const set of sets) {
-      const key = set.exercise.catalogId || set.exercise.exerciseName;
-      const weight = set.actualWeightKg!;
-      const reps = set.actualReps!;
-      const date = set.exercise.workoutSession.date.toISOString().split('T')[0];
-
-      if (!exerciseMap[key]) {
-        exerciseMap[key] = {
-          exerciseName: set.exercise.exerciseName,
-          catalogId: set.exercise.catalogId,
-          records: {},
-        };
-      }
-
-      const existing = exerciseMap[key].records[weight];
-      if (!existing || reps > existing.reps) {
-        exerciseMap[key].records[weight] = { reps, date };
-      }
-    }
-
-    // Convert to sorted array
-    const prs = Object.values(exerciseMap)
-      .map((ex) => ({
-        exerciseName: ex.exerciseName,
-        catalogId: ex.catalogId,
-        records: Object.entries(ex.records)
-          .map(([weight, data]) => ({
-            weightKg: parseFloat(weight),
-            reps: data.reps,
-            date: data.date,
-          }))
-          .sort((a, b) => b.weightKg - a.weightKg),
-      }))
-      .sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
-
+    const prs = await computeEnrichedPRs(req.userId!);
     res.json({ prs });
   } catch (error) {
     console.error('Get PRs error:', error);
@@ -151,36 +89,63 @@ router.get('/prs', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Get PR feed — reverse-chronological timeline of PR-breaking moments
+router.get('/prs/feed', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const prEvents = await computePRFeed(req.userId!);
+    res.json({ prEvents });
+  } catch (error) {
+    console.error('Get PR feed error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get e1RM history and per-exercise progression for all exercises
 router.get('/exercise-history', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const sets = await prisma.exerciseSet.findMany({
-      where: {
-        completed: true,
-        actualWeightKg: { not: null },
-        actualReps: { not: null },
-        exercise: {
-          workoutSession: {
-            userId: req.userId!,
-            completedAt: { not: null },
+    const [sets, catalogs] = await Promise.all([
+      prisma.exerciseSet.findMany({
+        where: {
+          completed: true,
+          actualWeightKg: { not: null },
+          actualReps: { not: null },
+          exercise: {
+            workoutSession: {
+              userId: req.userId!,
+              completedAt: { not: null },
+            },
           },
         },
-      },
-      include: {
-        exercise: {
-          select: {
-            exerciseName: true,
-            catalogId: true,
-            workoutSession: { select: { date: true } },
+        include: {
+          exercise: {
+            select: {
+              exerciseName: true,
+              catalogId: true,
+              muscleGroup: true,
+              workoutSession: { select: { date: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.exerciseCatalog.findMany({
+        where: {
+          OR: [{ isDefault: true }, { userId: req.userId! }],
+        },
+        select: { id: true, primaryMuscle: true, equipment: true },
+      }),
+    ]);
+
+    const catalogMap: Record<string, { primaryMuscle: string; equipment: string }> = {};
+    for (const c of catalogs) {
+      catalogMap[c.id] = { primaryMuscle: c.primaryMuscle, equipment: c.equipment };
+    }
 
     // Group by exercise → by session date → best set and e1RM
     const exerciseMap: Record<string, {
       exerciseName: string;
       catalogId: string | null;
+      primaryMuscle: string;
+      equipment: string;
       sessions: Record<string, { bestWeightKg: number; bestReps: number; e1rm: number }>;
     }> = {};
 
@@ -194,9 +159,12 @@ router.get('/exercise-history', requireAuth, async (req: AuthRequest, res: Respo
       const e1rm = reps === 1 ? weight : Math.round(weight * (1 + reps / 30) * 100) / 100;
 
       if (!exerciseMap[key]) {
+        const catalog = set.exercise.catalogId ? catalogMap[set.exercise.catalogId] : null;
         exerciseMap[key] = {
           exerciseName: set.exercise.exerciseName,
           catalogId: set.exercise.catalogId,
+          primaryMuscle: catalog?.primaryMuscle || set.exercise.muscleGroup,
+          equipment: catalog?.equipment || 'unknown',
           sessions: {},
         };
       }
@@ -212,6 +180,8 @@ router.get('/exercise-history', requireAuth, async (req: AuthRequest, res: Respo
       .map((ex) => ({
         exerciseName: ex.exerciseName,
         catalogId: ex.catalogId,
+        primaryMuscle: ex.primaryMuscle,
+        equipment: ex.equipment,
         history: Object.entries(ex.sessions)
           .map(([date, data]) => ({
             date,
@@ -227,6 +197,31 @@ router.get('/exercise-history', requireAuth, async (req: AuthRequest, res: Respo
     res.json({ exercises });
   } catch (error) {
     console.error('Get exercise history error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get detailed exercise history with stats and charts
+const detailRangeSchema = z.enum(['1m', '3m', '6m', '1y', 'all']).default('6m');
+
+router.get('/exercise/:catalogId/detail', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const catalogId = String(req.params.catalogId);
+    const range = detailRangeSchema.parse(queryString(req.query.range) || '6m');
+
+    const detail = await getExerciseDetail(req.userId!, catalogId, range);
+    if (!detail) {
+      res.status(404).json({ error: 'Exercise not found' });
+      return;
+    }
+
+    res.json({ detail });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Get exercise detail error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

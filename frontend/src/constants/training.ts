@@ -23,23 +23,31 @@ export const MUSCLE_LABELS: Record<string, string> = {
   triceps: 'Triceps', calves: 'Calves', abs: 'Abs', glutes: 'Glutes', traps: 'Traps',
 };
 
-export const DEFAULT_VOLUME_GUARDRAILS: Record<string, { mev: number; mrv: number }> = {
-  chest: { mev: 6, mrv: 22 },
-  back: { mev: 6, mrv: 22 },
-  side_delts: { mev: 6, mrv: 22 },
-  quads: { mev: 4, mrv: 18 },
-  hamstrings: { mev: 4, mrv: 16 },
-  biceps: { mev: 4, mrv: 20 },
-  triceps: { mev: 4, mrv: 18 },
-  rear_delts: { mev: 4, mrv: 18 },
-  calves: { mev: 4, mrv: 16 },
-  abs: { mev: 0, mrv: 16 },
-  glutes: { mev: 0, mrv: 16 },
-  traps: { mev: 0, mrv: 14 },
+export const DEFAULT_VOLUME_GUARDRAILS: Record<string, { floor: number; ceiling: number }> = {
+  chest: { floor: 6, ceiling: 22 },
+  back: { floor: 6, ceiling: 22 },
+  side_delts: { floor: 6, ceiling: 22 },
+  quads: { floor: 4, ceiling: 18 },
+  hamstrings: { floor: 4, ceiling: 16 },
+  biceps: { floor: 4, ceiling: 20 },
+  triceps: { floor: 4, ceiling: 18 },
+  rear_delts: { floor: 4, ceiling: 18 },
+  calves: { floor: 4, ceiling: 16 },
+  abs: { floor: 0, ceiling: 16 },
+  glutes: { floor: 0, ceiling: 16 },
+  traps: { floor: 0, ceiling: 14 },
 };
 
-// Backward compat alias
-export const VOLUME_GUARDRAILS = DEFAULT_VOLUME_GUARDRAILS;
+export const EQUIPMENT_ORDER = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'unknown'];
+
+export const EQUIPMENT_LABELS: Record<string, string> = {
+  barbell: 'Barbell',
+  dumbbell: 'Dumbbell',
+  cable: 'Cable',
+  machine: 'Machine',
+  bodyweight: 'Bodyweight',
+  unknown: 'Other',
+};
 
 export const VOLUME_DEFAULTS: Record<string, Record<string, number>> = {
   beginner: {

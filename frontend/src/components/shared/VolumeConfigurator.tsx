@@ -6,8 +6,8 @@ import { ALL_MUSCLE_GROUPS, MUSCLE_LABELS, DEFAULT_VOLUME_GUARDRAILS } from '../
 interface VolumeConfiguratorProps {
   volumeTargets: Record<string, number>;
   setVolumeTargets: (targets: Record<string, number>) => void;
-  guardrails: Record<string, { mev: number; mrv: number }>;
-  setGuardrails: (guardrails: Record<string, { mev: number; mrv: number }>) => void;
+  guardrails: Record<string, { floor: number; ceiling: number }>;
+  setGuardrails: (guardrails: Record<string, { floor: number; ceiling: number }>) => void;
   setGuardrailsDirty?: (dirty: boolean) => void;
   expandedGuardrail: string | null;
   setExpandedGuardrail: (muscle: string | null) => void;
@@ -57,7 +57,7 @@ const VolumeConfigurator = ({
                 <Text style={styles.volumeLabel}>{MUSCLE_LABELS[muscle]}</Text>
                 <TouchableOpacity onPress={() => setExpandedGuardrail(isExpanded ? null : muscle)}>
                   <Text style={styles.volumeRange}>
-                    MEV {guard.mev}, MRV {guard.mrv} <Text style={styles.editHint}>(edit)</Text>
+                    Floor {guard.floor}, Ceiling {guard.ceiling} <Text style={styles.editHint}>(edit)</Text>
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -73,15 +73,15 @@ const VolumeConfigurator = ({
                 </TouchableOpacity>
                 <Text style={[
                   styles.volumeValue,
-                  value < guard.mev && value > 0 && { color: COLORS.warning },
-                  value > guard.mrv && { color: COLORS.danger },
+                  value < guard.floor && value > 0 && { color: COLORS.warning },
+                  value > guard.ceiling && { color: COLORS.danger },
                 ]}>
                   {value}
                 </Text>
                 <TouchableOpacity
                   style={styles.volumeBtn}
                   onPress={() => {
-                    const newVal = Math.min(guard.mrv + 2, value + 2);
+                    const newVal = Math.min(guard.ceiling + 2, value + 2);
                     setVolumeTargets({ ...volumeTargets, [muscle]: newVal });
                   }}
                 >
@@ -92,32 +92,32 @@ const VolumeConfigurator = ({
             {isExpanded && (
               <View style={styles.guardrailEditor}>
                 <View style={styles.guardrailRow}>
-                  <Text style={styles.guardrailLabel}>MEV</Text>
+                  <Text style={styles.guardrailLabel}>Floor</Text>
                   <TouchableOpacity
                     style={styles.guardrailBtn}
                     onPress={() => {
-                      const newMev = Math.max(0, guard.mev - 1);
-                      if (newMev < guard.mrv) {
-                        setGuardrails({ ...guardrails, [muscle]: { ...guard, mev: newMev } });
+                      const newFloor = Math.max(0, guard.floor - 1);
+                      if (newFloor < guard.ceiling) {
+                        setGuardrails({ ...guardrails, [muscle]: { ...guard, floor: newFloor } });
                         markDirty();
-                        if (value > 0 && value < newMev) {
-                          setVolumeTargets({ ...volumeTargets, [muscle]: newMev });
+                        if (value > 0 && value < newFloor) {
+                          setVolumeTargets({ ...volumeTargets, [muscle]: newFloor });
                         }
                       }
                     }}
                   >
                     <Text style={styles.guardrailBtnText}>-</Text>
                   </TouchableOpacity>
-                  <Text style={styles.guardrailValue}>{guard.mev}</Text>
+                  <Text style={styles.guardrailValue}>{guard.floor}</Text>
                   <TouchableOpacity
                     style={styles.guardrailBtn}
                     onPress={() => {
-                      const newMev = guard.mev + 1;
-                      if (newMev < guard.mrv) {
-                        setGuardrails({ ...guardrails, [muscle]: { ...guard, mev: newMev } });
+                      const newFloor = guard.floor + 1;
+                      if (newFloor < guard.ceiling) {
+                        setGuardrails({ ...guardrails, [muscle]: { ...guard, floor: newFloor } });
                         markDirty();
-                        if (value > 0 && value < newMev) {
-                          setVolumeTargets({ ...volumeTargets, [muscle]: newMev });
+                        if (value > 0 && value < newFloor) {
+                          setVolumeTargets({ ...volumeTargets, [muscle]: newFloor });
                         }
                       }
                     }}
@@ -126,27 +126,27 @@ const VolumeConfigurator = ({
                   </TouchableOpacity>
                 </View>
                 <View style={styles.guardrailRow}>
-                  <Text style={styles.guardrailLabel}>MRV</Text>
+                  <Text style={styles.guardrailLabel}>Ceiling</Text>
                   <TouchableOpacity
                     style={styles.guardrailBtn}
                     onPress={() => {
-                      const newMrv = guard.mrv - 1;
-                      if (newMrv > guard.mev) {
-                        setGuardrails({ ...guardrails, [muscle]: { ...guard, mrv: newMrv } });
+                      const newCeiling = guard.ceiling - 1;
+                      if (newCeiling > guard.floor) {
+                        setGuardrails({ ...guardrails, [muscle]: { ...guard, ceiling: newCeiling } });
                         markDirty();
-                        if (value > newMrv) {
-                          setVolumeTargets({ ...volumeTargets, [muscle]: newMrv });
+                        if (value > newCeiling) {
+                          setVolumeTargets({ ...volumeTargets, [muscle]: newCeiling });
                         }
                       }
                     }}
                   >
                     <Text style={styles.guardrailBtnText}>-</Text>
                   </TouchableOpacity>
-                  <Text style={styles.guardrailValue}>{guard.mrv}</Text>
+                  <Text style={styles.guardrailValue}>{guard.ceiling}</Text>
                   <TouchableOpacity
                     style={styles.guardrailBtn}
                     onPress={() => {
-                      setGuardrails({ ...guardrails, [muscle]: { ...guard, mrv: guard.mrv + 1 } });
+                      setGuardrails({ ...guardrails, [muscle]: { ...guard, ceiling: guard.ceiling + 1 } });
                       markDirty();
                     }}
                   >
@@ -164,15 +164,15 @@ const VolumeConfigurator = ({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Volume Guardrails</Text>
             <Text style={styles.modalBody}>
-              <Text style={styles.modalBold}>MEV (Minimum Effective Volume)</Text>
-              {'\n'}The fewest weekly sets per muscle group that still produce measurable growth. Going below MEV means you're likely not providing enough stimulus.
+              <Text style={styles.modalBold}>Floor (Minimum Volume)</Text>
+              {'\n'}The fewest weekly sets per muscle group that still produce measurable growth. Going below the floor means you're likely not providing enough stimulus.
             </Text>
             <Text style={[styles.modalBody, { marginTop: SPACING.md }]}>
-              <Text style={styles.modalBold}>MRV (Maximum Recoverable Volume)</Text>
-              {'\n'}The most weekly sets you can handle while still recovering between sessions. Exceeding MRV leads to accumulated fatigue and potential regression.
+              <Text style={styles.modalBold}>Ceiling (Maximum Volume)</Text>
+              {'\n'}The most weekly sets you can handle while still recovering between sessions. Exceeding the ceiling leads to accumulated fatigue and potential regression.
             </Text>
             <Text style={[styles.modalBody, { marginTop: SPACING.md, color: COLORS.text_tertiary }]}>
-              Advanced lifters can customize these values by tapping the MEV/MRV numbers next to each muscle group.
+              Advanced lifters can customize these values by tapping the floor/ceiling numbers next to each muscle group.
             </Text>
             <TouchableOpacity style={styles.modalDismiss} onPress={() => setShowInfoModal(false)}>
               <Text style={styles.modalDismissText}>Got it</Text>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: COLORS.text_tertiary,
-    width: 30,
+    width: 42,
   },
   guardrailBtn: {
     width: 28,

@@ -11,8 +11,10 @@ interface PendingExerciseCardProps {
   totalCount: number;
   drag: () => void;
   isActive: boolean;
+  isNovice?: boolean;
   onMove: (index: number, direction: -1 | 1) => void;
   onUpdateSets: (index: number, sets: number) => void;
+  onUpdateRepRange: (index: number, low: number, high: number) => void;
   onRemove: (index: number) => void;
 }
 
@@ -22,8 +24,10 @@ export default function PendingExerciseCard({
   totalCount,
   drag,
   isActive,
+  isNovice,
   onMove,
   onUpdateSets,
+  onUpdateRepRange,
   onRemove,
 }: PendingExerciseCardProps) {
   return (
@@ -54,26 +58,54 @@ export default function PendingExerciseCard({
           <Text style={styles.pendingName}>{ex.exerciseName}</Text>
           <Text style={styles.pendingMeta}>
             {MUSCLE_LABELS[ex.muscleGroup] || ex.muscleGroup}
-            {ex.prescription ? ' · Prescribed' : ` · ${ex.repRangeLow}-${ex.repRangeHigh} reps`}
+            {ex.prescription ? ' · Prescribed' : ''}
           </Text>
           {ex.adjustmentNote && (
             <Text style={styles.adjustmentNote}>{ex.adjustmentNote}</Text>
           )}
         </View>
-        <View style={styles.setsControl}>
-          <TouchableOpacity
-            style={styles.setsBtn}
-            onPress={() => onUpdateSets(i, ex.sets - 1)}
-          >
-            <Text style={styles.setsBtnText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.setsValue}>{ex.sets}</Text>
-          <TouchableOpacity
-            style={styles.setsBtn}
-            onPress={() => onUpdateSets(i, ex.sets + 1)}
-          >
-            <Text style={styles.setsBtnText}>+</Text>
-          </TouchableOpacity>
+        <View style={styles.controlsRow}>
+          {!ex.prescription && (
+            <View style={styles.repRangeControl}>
+              <Text style={styles.controlLabel}>Reps</Text>
+              <View style={styles.rangeRow}>
+                <TouchableOpacity
+                  style={styles.smallBtn}
+                  onPress={() => onUpdateRepRange(i, ex.repRangeLow - 1, ex.repRangeHigh)}
+                >
+                  <Text style={styles.setsBtnText}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.rangeValue}>{ex.repRangeLow}-{ex.repRangeHigh}</Text>
+                <TouchableOpacity
+                  style={styles.smallBtn}
+                  onPress={() => onUpdateRepRange(i, ex.repRangeLow, ex.repRangeHigh + 1)}
+                >
+                  <Text style={styles.setsBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+              {isNovice && (
+                <Text style={styles.recommendedLabel}>Recommended</Text>
+              )}
+            </View>
+          )}
+          <View style={styles.setsControl}>
+            <Text style={styles.controlLabel}>Sets</Text>
+            <View style={styles.rangeRow}>
+              <TouchableOpacity
+                style={styles.smallBtn}
+                onPress={() => onUpdateSets(i, ex.sets - 1)}
+              >
+                <Text style={styles.setsBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.setsValue}>{ex.sets}</Text>
+              <TouchableOpacity
+                style={styles.smallBtn}
+                onPress={() => onUpdateSets(i, ex.sets + 1)}
+              >
+                <Text style={styles.setsBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
         <TouchableOpacity onPress={() => onRemove(i)} style={{ paddingLeft: SPACING.md }}>
           <Text style={{ color: COLORS.danger, fontSize: 16, fontWeight: '700' }}>×</Text>
@@ -123,15 +155,46 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
   },
-  setsControl: {
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+  },
+  repRangeControl: {
+    alignItems: 'center',
+  },
+  controlLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  rangeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: 4,
   },
-  setsBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  rangeValue: {
+    color: COLORS.accent_light,
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  recommendedLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 9,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  setsControl: {
+    alignItems: 'center',
+  },
+  smallBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: COLORS.bg_input,
     alignItems: 'center',
     justifyContent: 'center',
@@ -140,12 +203,12 @@ const styles = StyleSheet.create({
   },
   setsBtnText: {
     color: COLORS.text_primary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   setsValue: {
     color: COLORS.accent_light,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     minWidth: 20,
     textAlign: 'center',

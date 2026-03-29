@@ -10,10 +10,13 @@
  */
 
 // Weight increments for double progression (in kg)
-const UPPER_BODY_INCREMENT_KG = 2.27; // ~5 lbs
-const LOWER_BODY_INCREMENT_KG = 4.54; // ~10 lbs
+// Compound upper: ~5 lbs, compound lower: ~10 lbs, isolation: ~2.5 lbs
+// Isolation exercises use smaller increments because a 5 lb jump on a 25 lb
+// lateral raise is a 20% increase vs 2.5% on a 200 lb bench press.
+const COMPOUND_UPPER_INCREMENT_KG = 2.27; // ~5 lbs
+const COMPOUND_LOWER_INCREMENT_KG = 4.54; // ~10 lbs
+const ISOLATION_INCREMENT_KG = 1.13; // ~2.5 lbs
 
-const UPPER_BODY_MUSCLES = ['chest', 'back', 'side_delts', 'rear_delts', 'biceps', 'triceps', 'traps'];
 const LOWER_BODY_MUSCLES = ['quads', 'hamstrings', 'calves', 'glutes', 'abs'];
 
 export interface PreviousSetData {
@@ -28,6 +31,7 @@ export interface PreviousExerciseData {
   catalogId: string | null;
   exerciseName: string;
   muscleGroup: string;
+  movementType: 'compound' | 'isolation';
   sets: PreviousSetData[];
 }
 
@@ -52,12 +56,15 @@ export interface SessionPrescription {
 }
 
 /**
- * Get the weight increment based on the muscle group.
+ * Get the weight increment based on movement type and muscle group.
+ * Isolation exercises get smaller increments (~2.5 lbs) because percentage
+ * jumps are much larger at lower absolute weights.
  */
-function getIncrement(muscleGroup: string): number {
+function getIncrement(muscleGroup: string, movementType: 'compound' | 'isolation'): number {
+  if (movementType === 'isolation') return ISOLATION_INCREMENT_KG;
   return LOWER_BODY_MUSCLES.includes(muscleGroup)
-    ? LOWER_BODY_INCREMENT_KG
-    : UPPER_BODY_INCREMENT_KG;
+    ? COMPOUND_LOWER_INCREMENT_KG
+    : COMPOUND_UPPER_INCREMENT_KG;
 }
 
 /**
@@ -176,7 +183,7 @@ export function prescribeExercise(
   repRangeHigh: number,
   olderSessions: PreviousExerciseData[],
 ): ExercisePrescription {
-  const increment = getIncrement(prevExercise.muscleGroup);
+  const increment = getIncrement(prevExercise.muscleGroup, prevExercise.movementType);
   const completedSets = prevExercise.sets.filter((s) => s.completed && s.actualWeightKg != null && s.actualReps != null);
 
   // --- Decline detection: require 2+ consecutive sessions of decline ---

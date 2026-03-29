@@ -454,15 +454,12 @@ const programTemplates = [
 async function main() {
   console.log('Seeding exercise catalog...');
 
-  // Upsert exercises
-  for (const ex of exercises) {
-    await prisma.exerciseCatalog.upsert({
-      where: { name: ex.name },
-      update: ex,
-      create: ex,
-    });
-  }
-  console.log(`Seeded ${exercises.length} exercises`);
+  // Insert exercises (skip if already exist)
+  const result = await prisma.exerciseCatalog.createMany({
+    data: exercises,
+    skipDuplicates: true,
+  });
+  console.log(`Seeded ${result.count} exercises (${exercises.length - result.count} already existed)`);
 
   // Upsert program templates
   for (const tmpl of programTemplates) {

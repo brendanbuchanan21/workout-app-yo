@@ -7,7 +7,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string | React.ReactNode> = {
     Home: <Ionicons name="home" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
     Train: <Ionicons name="barbell-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
-    Nutrition: <Ionicons name="nutrition" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
+    Nutrition: <Ionicons name="nutrition-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
     Progress: <Ionicons name="bar-chart" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
   };
   return (
@@ -59,10 +59,12 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => <TabIcon label="Train" focused={focused} />,
         }}
       />
+      {/* NUTRITION_HIDDEN */}
       <Tabs.Screen
         name="nutrition"
         options={{
           title: 'Nutrition',
+          href: null,
           tabBarIcon: ({ focused }) => <TabIcon label="Nutrition" focused={focused} />,
         }}
       />

@@ -9,9 +9,10 @@ interface DayPickerProps {
   today: TodayContext;
   onStartDay: (option: DayOption) => void;
   SettingsLink: React.ComponentType;
+  MyProgramLink: React.ComponentType;
 }
 
-export default function DayPicker({ today, onStartDay, SettingsLink }: DayPickerProps) {
+export default function DayPicker({ today, onStartDay, SettingsLink, MyProgramLink }: DayPickerProps) {
   const dayOptions = today.dayOptions!;
   const completedDays = dayOptions.filter((d) => d.completed);
   const nextDay = dayOptions.find((d) => !d.completed);
@@ -23,7 +24,7 @@ export default function DayPicker({ today, onStartDay, SettingsLink }: DayPicker
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.blockLabel}>Week {today.weekNumber} · RIR {today.targetRir}</Text>
-        <SettingsLink />
+        <MyProgramLink />
 
         {nextDay && !allDone && (
           <View style={styles.nextUpCard}>

@@ -21,7 +21,13 @@ Each set is treated independently:
 1. Assign a rep range (e.g., 8-12 reps) and a target RIR
 2. Athlete trains at a given weight
 3. When a set hits the **top of the rep range at target RIR**, increase weight for that set next session
-4. Weight increment: 5 lbs (2.27 kg) upper body, 10 lbs (4.54 kg) lower body
+4. Weight increments vary by movement type:
+   - Compound upper body: 5 lbs (2.27 kg)
+   - Compound lower body: 10 lbs (4.54 kg)
+   - Isolation: 2.5 lbs (1.13 kg)
+   Isolation exercises use smaller increments because percentage jumps are
+   disproportionately large at lower absolute weights (e.g., 5 lbs on a 25 lb
+   lateral raise = 20% jump vs 2.5% on a 200 lb bench).
 5. Reps will drop toward the bottom of the range at the new weight
 6. Build back up again
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -11,7 +11,9 @@ export function useTrainSession() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<TodayContext | null>(null);
+  const [trainingBlock, setTrainingBlock] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
+  const [workoutActive, setWorkoutActive] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
 
   const [activeSetIdx, setActiveSetIdx] = useState<number | null>(null);
@@ -19,6 +21,21 @@ export function useTrainSession() {
   const [lastPerformance, setLastPerformance] = useState<Record<string, any[]>>({});
 
   const [showAddExercise, setShowAddExercise] = useState(false);
+
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (workoutStartTime) {
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - workoutStartTime) / 1000));
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [workoutStartTime]);
 
   const [buildMode, setBuildMode] = useState(false);
   const [choosingDay, setChoosingDay] = useState(false);
@@ -50,6 +67,7 @@ export function useTrainSession() {
       const blockRes = await apiGet('/training/block/active');
       if (blockRes.ok) {
         const blockData = await blockRes.json();
+        setTrainingBlock(blockData.trainingBlock);
         const todaySessions = blockData.trainingBlock.workoutSessions?.filter(
           (s: any) => s.weekNumber === todayData.weekNumber && s.dayLabel === todayData.dayLabel
         ) || [];
@@ -58,6 +76,14 @@ export function useTrainSession() {
           setSession(todaySessions[0]);
           setBuildMode(false);
           setChoosingDay(false);
+          // Auto-resume only if there are logged sets (in-progress workout)
+          const hasLoggedSets = todaySessions[0].exercises.some(
+            (e: any) => e.sets?.some((s: any) => s.completed)
+          );
+          setWorkoutActive(hasLoggedSets);
+          if (hasLoggedSets && !workoutStartTime) {
+            setWorkoutStartTime(Date.now());
+          }
           if (catalog.length === 0) {
             const catalogRes = await apiGet('/training/exercises');
             if (catalogRes.ok) {
@@ -66,6 +92,7 @@ export function useTrainSession() {
             }
           }
         } else if (todayData.setupMethod === 'build_as_you_go') {
+          setWorkoutActive(false);
           if (todayData.dayOptions && todayData.dayOptions.length > 1) {
             setChoosingDay(true);
             setChosenDay(null);
@@ -160,6 +187,16 @@ export function useTrainSession() {
     setPendingExercises(updated);
   };
 
+  const updateRepRange = (index: number, low: number, high: number) => {
+    const updated = [...pendingExercises];
+    updated[index] = {
+      ...updated[index],
+      repRangeLow: Math.max(1, Math.min(low, high)),
+      repRangeHigh: Math.max(low, Math.min(50, high)),
+    };
+    setPendingExercises(updated);
+  };
+
   const startWorkout = async () => {
     if (!today || pendingExercises.length === 0) {
       Alert.alert('Add exercises', 'Add at least one exercise to start your workout');
@@ -186,6 +223,7 @@ export function useTrainSession() {
       setSession(data.session);
       setBuildMode(false);
       setCurrentExercise(0);
+      setWorkoutStartTime(Date.now());
     } catch (err: any) {
       Alert.alert('Error', err.message);
     }
@@ -277,6 +315,14 @@ export function useTrainSession() {
         updated.exercises[exerciseIdx].sets[setIdx] = data.set;
         setSession(updated);
         setActiveSetIdx(null);
+
+        // Check if all sets across all exercises are now complete
+        const allComplete = updated.exercises.every(
+          (e: any) => e.sets.every((s: any) => s.completed)
+        );
+        if (allComplete) {
+          setCurrentExercise(updated.exercises.length - 1);
+        }
       }
     } catch (err) {
       console.error('Log set error:', err);
@@ -440,14 +486,47 @@ export function useTrainSession() {
     setExerciseSearch('');
   };
 
+  const beginWorkout = async () => {
+    // For template/plan sessions, apply autoregulation prescription before starting
+    if (session?.id && today?.setupMethod !== 'build_as_you_go') {
+      try {
+        const res = await apiPost(`/training/session/${session.id}/apply-prescription`, {});
+        if (res.ok) {
+          const data = await res.json();
+          if (data.applied) {
+            setSession(data.session);
+          }
+        }
+      } catch (err) {
+        console.error('Apply prescription error:', err);
+      }
+    }
+    setWorkoutActive(true);
+    setWorkoutStartTime(Date.now());
+  };
+
+  const allSetsComplete = session?.exercises?.length > 0 &&
+    session.exercises.every((e: any) => e.sets.every((s: any) => s.completed));
+
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const mins = Math.floor((elapsedSeconds % 3600) / 60);
+  const secs = elapsedSeconds % 60;
+  const workoutDuration = hours > 0
+    ? `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    : `${mins}:${String(secs).padStart(2, '0')}`;
+
   return {
     loading,
     today,
+    trainingBlock,
     session,
+    workoutActive,
     currentExercise,
     activeSetIdx,
     setInputs,
     showAddExercise,
+    allSetsComplete,
+    workoutDuration,
     buildMode,
     choosingDay,
     chosenDay,
@@ -473,6 +552,7 @@ export function useTrainSession() {
     removeExercise,
     moveExercise,
     updateSets,
+    updateRepRange,
     startWorkout,
     openSetInput,
     logSet,
@@ -483,5 +563,6 @@ export function useTrainSession() {
     addExerciseToSession,
     startDay,
     goBackToDayPicker,
+    beginWorkout,
   };
 }

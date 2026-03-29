@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import { apiPost, apiGet } from '../utils/api';
 import { SPLIT_SUGGESTIONS, VOLUME_DEFAULTS, DEFAULT_VOLUME_GUARDRAILS } from '../constants/training';
 
-type SetupPath = 'choose' | 'template_browse' | 'template_detail' | 'plan' | 'plan_volume' | 'build_as_you_go';
+type SetupPath = 'choose' | 'template_browse' | 'template_detail' | 'template_customize' | 'plan' | 'plan_volume' | 'build_as_you_go';
 
 interface Template {
   id: string;
@@ -32,6 +32,12 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [dayOrder, setDayOrder] = useState<number[]>([]);
 
+  // Template customization
+  const [templateLengthWeeks, setTemplateLengthWeeks] = useState(5);
+  const [templateStartingRir, setTemplateStartingRir] = useState(3);
+  const [templateRirFloor, setTemplateRirFloor] = useState(1);
+  const [templateDeloadRir, setTemplateDeloadRir] = useState(6);
+
   const userDays = user?.daysPerWeek || 4;
   const [daysPerWeek, setDaysPerWeek] = useState(userDays);
   const [splitType, setSplitType] = useState(SPLIT_SUGGESTIONS[userDays] || 'upper_lower');
@@ -40,7 +46,7 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
   const [volumeTargets, setVolumeTargets] = useState<Record<string, number>>(
     VOLUME_DEFAULTS[user?.experienceLevel || 'intermediate']
   );
-  const [guardrails, setGuardrails] = useState<Record<string, { mev: number; mrv: number }>>(
+  const [guardrails, setGuardrails] = useState<Record<string, { floor: number; ceiling: number }>>(
     { ...DEFAULT_VOLUME_GUARDRAILS }
   );
   const [expandedGuardrail, setExpandedGuardrail] = useState<string | null>(null);
@@ -62,7 +68,7 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
   const loadTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const res = await apiGet('/training/templates');
+      const res = await apiGet(`/training/templates?daysPerWeek=${userDays}`);
       const data = await res.json();
       if (res.ok) setTemplates(data.templates);
     } catch (err) {
@@ -72,14 +78,19 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
     }
   };
 
-  const applyTemplate = async (template: Template) => {
+  const applyTemplate = async (template: Template, customize = false) => {
     setIsSubmitting(true);
     try {
       const createRes = await apiPost('/training/block/create', {
         splitType: template.splitType,
         daysPerWeek: template.daysPerWeek,
         setupMethod: 'template',
-        lengthWeeks: template.lengthWeeks,
+        lengthWeeks: customize ? templateLengthWeeks : template.lengthWeeks,
+        ...(customize && {
+          startingRir: templateStartingRir,
+          rirFloor: templateRirFloor,
+          deloadRir: templateDeloadRir,
+        }),
       });
       if (!createRes.ok) {
         const err = await createRes.json();
@@ -167,6 +178,10 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
     setSelectedTemplate,
     dayOrder,
     setDayOrder,
+    templateLengthWeeks, setTemplateLengthWeeks,
+    templateStartingRir, setTemplateStartingRir,
+    templateRirFloor, setTemplateRirFloor,
+    templateDeloadRir, setTemplateDeloadRir,
     daysPerWeek,
     splitType,
     customDays,

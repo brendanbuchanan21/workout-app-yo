@@ -1,34 +1,34 @@
-// Volume guardrails per muscle group: MEV (minimum effective) and MRV (maximum recoverable)
-export const VOLUME_GUARDRAILS: Record<string, { mev: number; mrv: number }> = {
-  chest:      { mev: 6, mrv: 22 },
-  back:       { mev: 6, mrv: 22 },
-  side_delts: { mev: 6, mrv: 22 },
-  quads:      { mev: 4, mrv: 18 },
-  hamstrings: { mev: 4, mrv: 16 },
-  biceps:     { mev: 4, mrv: 20 },
-  triceps:    { mev: 4, mrv: 18 },
-  rear_delts: { mev: 4, mrv: 18 },
-  calves:     { mev: 4, mrv: 16 },
-  abs:        { mev: 0, mrv: 16 },
-  glutes:     { mev: 0, mrv: 16 },
-  traps:      { mev: 0, mrv: 14 },
+// Volume guardrails per muscle group: floor (minimum productive) and ceiling (maximum recoverable)
+export const VOLUME_GUARDRAILS: Record<string, { floor: number; ceiling: number }> = {
+  chest:      { floor: 6, ceiling: 22 },
+  back:       { floor: 6, ceiling: 22 },
+  side_delts: { floor: 6, ceiling: 22 },
+  quads:      { floor: 4, ceiling: 18 },
+  hamstrings: { floor: 4, ceiling: 16 },
+  biceps:     { floor: 4, ceiling: 20 },
+  triceps:    { floor: 4, ceiling: 18 },
+  rear_delts: { floor: 4, ceiling: 18 },
+  calves:     { floor: 4, ceiling: 16 },
+  abs:        { floor: 0, ceiling: 16 },
+  glutes:     { floor: 0, ceiling: 16 },
+  traps:      { floor: 0, ceiling: 14 },
 };
 
 /**
  * Merge custom guardrails overrides with defaults.
- * customGuardrails is a sparse map like { "chest": { "mev": 8 } }.
+ * customGuardrails is a sparse map like { "chest": { "floor": 8 } }.
  */
 export function getEffectiveGuardrails(
-  customGuardrails?: Record<string, { mev?: number; mrv?: number }> | null
-): Record<string, { mev: number; mrv: number }> {
+  customGuardrails?: Record<string, { floor?: number; ceiling?: number }> | null
+): Record<string, { floor: number; ceiling: number }> {
   if (!customGuardrails) return { ...VOLUME_GUARDRAILS };
 
-  const result: Record<string, { mev: number; mrv: number }> = {};
+  const result: Record<string, { floor: number; ceiling: number }> = {};
   for (const [muscle, defaults] of Object.entries(VOLUME_GUARDRAILS)) {
     const overrides = customGuardrails[muscle];
     result[muscle] = {
-      mev: overrides?.mev ?? defaults.mev,
-      mrv: overrides?.mrv ?? defaults.mrv,
+      floor: overrides?.floor ?? defaults.floor,
+      ceiling: overrides?.ceiling ?? defaults.ceiling,
     };
   }
   return result;
@@ -127,7 +127,7 @@ export function getDayLabels(
   daysPerWeek: number,
   customDays?: { dayLabel: string; muscleGroups: string[] }[]
 ): string[] {
-  if (splitType === 'custom' && customDays) {
+  if (customDays && customDays.length > 0) {
     return customDays.map((d) => d.dayLabel);
   }
   const labels = SPLIT_DAY_LABELS[splitType] || SPLIT_DAY_LABELS.push_pull_legs;
@@ -143,7 +143,7 @@ export function getMuscleGroupsForDay(
   dayIndex: number,
   customDays?: { dayLabel: string; muscleGroups: string[] }[]
 ): string[] {
-  if (splitType === 'custom' && customDays) {
+  if (customDays && customDays.length > 0) {
     return customDays[dayIndex % customDays.length]?.muscleGroups || [];
   }
   const days = SPLIT_DEFINITIONS[splitType] || SPLIT_DEFINITIONS.push_pull_legs;

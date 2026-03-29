@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
@@ -22,6 +23,9 @@ export default function BasicInfoStep({
   birthDay, setBirthDay,
   birthYear, setBirthYear,
 }: BasicInfoStepProps) {
+  const dayRef = useRef<TextInput>(null);
+  const yearRef = useRef<TextInput>(null);
+
   return (
     <View>
       <Text style={styles.stepTitle}>What's your name?</Text>
@@ -44,20 +48,30 @@ export default function BasicInfoStep({
           placeholder="MM"
           placeholderTextColor={COLORS.text_tertiary}
           value={birthMonth}
-          onChangeText={(t) => setBirthMonth(t.replace(/[^0-9]/g, '').slice(0, 2))}
+          onChangeText={(t) => {
+            const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+            setBirthMonth(v);
+            if (v.length === 2) setTimeout(() => dayRef.current?.focus(), 50);
+          }}
           keyboardType="number-pad"
           maxLength={2}
         />
         <TextInput
+          ref={dayRef}
           style={[styles.input, { flex: 1, textAlign: 'center' }]}
           placeholder="DD"
           placeholderTextColor={COLORS.text_tertiary}
           value={birthDay}
-          onChangeText={(t) => setBirthDay(t.replace(/[^0-9]/g, '').slice(0, 2))}
+          onChangeText={(t) => {
+            const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+            setBirthDay(v);
+            if (v.length === 2) setTimeout(() => yearRef.current?.focus(), 50);
+          }}
           keyboardType="number-pad"
           maxLength={2}
         />
         <TextInput
+          ref={yearRef}
           style={[styles.input, { flex: 1.5, textAlign: 'center' }]}
           placeholder="YYYY"
           placeholderTextColor={COLORS.text_tertiary}

@@ -30,11 +30,13 @@ interface BuildModeProps {
   onRemoveExercise: (index: number) => void;
   onMoveExercise: (index: number, direction: -1 | 1) => void;
   onUpdateSets: (index: number, sets: number) => void;
+  onUpdateRepRange: (index: number, low: number, high: number) => void;
   onReorderExercises: (data: PendingExercise[]) => void;
   onStartWorkout: () => void;
   onCreateCustomExercise: () => void;
   onGoBackToDayPicker: () => void;
   showBackButton: boolean;
+  isNovice?: boolean;
   SettingsLink: React.ComponentType;
 }
 
@@ -54,11 +56,13 @@ export default function BuildMode({
   onRemoveExercise,
   onMoveExercise,
   onUpdateSets,
+  onUpdateRepRange,
   onReorderExercises,
   onStartWorkout,
   onCreateCustomExercise,
   onGoBackToDayPicker,
   showBackButton,
+  isNovice,
   SettingsLink,
 }: BuildModeProps) {
   const suggestedMuscles = today.suggestedMuscleGroups;
@@ -78,8 +82,10 @@ export default function BuildMode({
         totalCount={pendingExercises.length}
         drag={drag}
         isActive={isActive}
+        isNovice={isNovice}
         onMove={onMoveExercise}
         onUpdateSets={onUpdateSets}
+        onUpdateRepRange={onUpdateRepRange}
         onRemove={onRemoveExercise}
       />
     );

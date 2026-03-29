@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import SetRow from './SetRow';
@@ -15,6 +16,8 @@ interface ActiveSessionProps {
   activeSetIdx: number | null;
   setInputs: { weight: string; reps: string; rir: string };
   showAddExercise: boolean;
+  allSetsComplete: boolean;
+  workoutDuration: string;
   exerciseSearch: string;
   selectedMuscle: string | null;
   catalog: CatalogExercise[];
@@ -40,6 +43,8 @@ export default function ActiveSession({
   activeSetIdx,
   setInputs,
   showAddExercise,
+  allSetsComplete,
+  workoutDuration,
   exerciseSearch,
   selectedMuscle,
   catalog,
@@ -57,6 +62,7 @@ export default function ActiveSession({
   onAddExerciseToSession,
   onFinishWorkout,
 }: ActiveSessionProps) {
+  const router = useRouter();
   const exercises = session.exercises;
   const exercise = exercises[currentExercise];
   const completedSets = exercises.flatMap((e: any) => e.sets).filter((s: any) => s.completed).length;
@@ -67,9 +73,15 @@ export default function ActiveSession({
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.workoutHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.blockLabel}>Week {today.weekNumber} · RIR {today.targetRir}</Text>
             <Text style={styles.dayLabelText}>{today.dayLabel}</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <Text style={styles.timerText}>{workoutDuration}</Text>
+            <TouchableOpacity style={styles.myProgramBtn} onPress={() => router.push('/my-program')}>
+              <Text style={styles.myProgramBtnText}>My Program</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -114,31 +126,80 @@ export default function ActiveSession({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.exerciseNav}>
-          {currentExercise > 0 && (
+        {allSetsComplete ? (
+          <View style={styles.completionPanel}>
+            <Text style={styles.completionTitle}>Workout Complete</Text>
+            <Text style={styles.completionSubtitle}>
+              All {totalSets} sets finished. Nice work.
+            </Text>
             <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => { onSetCurrentExercise(currentExercise - 1); onSetActiveSetIdx(null); onSetShowAddExercise(false); }}
+              style={styles.completeWorkoutBtn}
+              onPress={onFinishWorkout}
             >
-              <Text style={styles.navButtonText}>Previous</Text>
+              <Text style={styles.completeWorkoutBtnText}>Complete Workout</Text>
             </TouchableOpacity>
-          )}
-          {currentExercise < exercises.length - 1 ? (
             <TouchableOpacity
-              style={[styles.navButton, styles.navButtonPrimary]}
-              onPress={() => { onSetCurrentExercise(currentExercise + 1); onSetActiveSetIdx(null); onSetShowAddExercise(false); }}
-            >
-              <Text style={styles.navButtonPrimaryText}>Next Exercise</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.navButton, styles.navButtonPrimary]}
+              style={styles.addMoreBtn}
               onPress={() => onSetShowAddExercise(!showAddExercise)}
             >
-              <Text style={styles.navButtonPrimaryText}>Add Exercise</Text>
+              <Text style={styles.addMoreBtnText}>Add Another Exercise</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.exerciseNav}>
+              {currentExercise > 0 && (
+                <TouchableOpacity
+                  style={styles.navButton}
+                  onPress={() => { onSetCurrentExercise(currentExercise - 1); onSetActiveSetIdx(null); onSetShowAddExercise(false); }}
+                >
+                  <Text style={styles.navButtonText}>Previous</Text>
+                </TouchableOpacity>
+              )}
+              {currentExercise < exercises.length - 1 ? (
+                <TouchableOpacity
+                  style={[styles.navButton, styles.navButtonPrimary]}
+                  onPress={() => { onSetCurrentExercise(currentExercise + 1); onSetActiveSetIdx(null); onSetShowAddExercise(false); }}
+                >
+                  <Text style={styles.navButtonPrimaryText}>Next Exercise</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.navButton, styles.navButtonPrimary]}
+                  onPress={() => onSetShowAddExercise(!showAddExercise)}
+                >
+                  <Text style={styles.navButtonPrimaryText}>Add Exercise</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Workout Progress</Text>
+                <Text style={styles.progressValue}>{completedSets}/{totalSets} sets</Text>
+              </View>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${totalSets > 0 ? (completedSets / totalSets) * 100 : 0}%` }]} />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.endWorkoutBtn}
+              onPress={() => {
+                Alert.alert(
+                  'End Workout?',
+                  `${completedSets} of ${totalSets} sets completed. End now?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'End Workout', style: 'destructive', onPress: onFinishWorkout },
+                  ],
+                );
+              }}
+            >
+              <Text style={styles.endWorkoutBtnText}>End Workout</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         {showAddExercise && (
           <ExerciseSearchPanel
@@ -151,32 +212,6 @@ export default function ActiveSession({
             onAddExercise={onAddExerciseToSession}
           />
         )}
-
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Workout Progress</Text>
-            <Text style={styles.progressValue}>{completedSets}/{totalSets} sets</Text>
-          </View>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${totalSets > 0 ? (completedSets / totalSets) * 100 : 0}%` }]} />
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.endWorkoutBtn}
-          onPress={() => {
-            Alert.alert(
-              'End Workout?',
-              `${completedSets} of ${totalSets} sets completed. End now?`,
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'End Workout', style: 'destructive', onPress: onFinishWorkout },
-              ],
-            );
-          }}
-        >
-          <Text style={styles.endWorkoutBtnText}>End Workout</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -209,6 +244,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.xl,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: SPACING.xs,
+  },
+  timerText: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+  },
+  myProgramBtn: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+  },
+  myProgramBtnText: {
+    color: COLORS.accent_light,
+    fontSize: 12,
+    fontWeight: '600',
   },
   exerciseNav: {
     flexDirection: 'row',
@@ -288,6 +345,48 @@ const styles = StyleSheet.create({
   endWorkoutBtnText: {
     color: COLORS.danger,
     fontSize: 15,
+    fontWeight: '600',
+  },
+  completionPanel: {
+    marginTop: SPACING.xl,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.accent_primary,
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  completionTitle: {
+    color: COLORS.text_primary,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  },
+  completionSubtitle: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    marginBottom: SPACING.xl,
+  },
+  completeWorkoutBtn: {
+    backgroundColor: COLORS.accent_primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xxl,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: SPACING.md,
+  },
+  completeWorkoutBtnText: {
+    color: COLORS.text_on_accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  addMoreBtn: {
+    paddingVertical: SPACING.sm,
+  },
+  addMoreBtnText: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

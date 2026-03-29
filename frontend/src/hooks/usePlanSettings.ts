@@ -18,7 +18,7 @@ interface TrainingBlock {
   templateId: string | null;
   customDays: { dayLabel: string; muscleGroups: string[] }[] | null;
   volumeTargets: Record<string, number>;
-  customGuardrails: Record<string, { mev?: number; mrv?: number }> | null;
+  customGuardrails: Record<string, { floor?: number; ceiling?: number }> | null;
   startingRir: number;
   rirFloor: number;
   rirDecrementPerWeek: number;
@@ -38,7 +38,7 @@ export default function usePlanSettings() {
   const [customDays, setCustomDays] = useState<{ dayLabel: string; muscleGroups: string[] }[]>([]);
   const [volumeTargets, setVolumeTargets] = useState<Record<string, number>>({});
   const [editingDayIndex, setEditingDayIndex] = useState<number | null>(null);
-  const [guardrails, setGuardrails] = useState<Record<string, { mev: number; mrv: number }>>(
+  const [guardrails, setGuardrails] = useState<Record<string, { floor: number; ceiling: number }>>(
     { ...DEFAULT_VOLUME_GUARDRAILS }
   );
   const [expandedGuardrail, setExpandedGuardrail] = useState<string | null>(null);
@@ -147,13 +147,13 @@ export default function usePlanSettings() {
       if (deloadRir !== original!.deloadRir) body.deloadRir = deloadRir;
 
       if (guardrailsDirty) {
-        const customGuardrails: Record<string, { mev?: number; mrv?: number }> = {};
+        const customGuardrails: Record<string, { floor?: number; ceiling?: number }> = {};
         for (const [muscle, guard] of Object.entries(guardrails)) {
           const def = DEFAULT_VOLUME_GUARDRAILS[muscle];
-          if (def && (guard.mev !== def.mev || guard.mrv !== def.mrv)) {
+          if (def && (guard.floor !== def.floor || guard.ceiling !== def.ceiling)) {
             customGuardrails[muscle] = {};
-            if (guard.mev !== def.mev) customGuardrails[muscle].mev = guard.mev;
-            if (guard.mrv !== def.mrv) customGuardrails[muscle].mrv = guard.mrv;
+            if (guard.floor !== def.floor) customGuardrails[muscle].floor = guard.floor;
+            if (guard.ceiling !== def.ceiling) customGuardrails[muscle].ceiling = guard.ceiling;
           }
         }
         const gRes = await apiPut('/training/volume-guardrails', { customGuardrails });

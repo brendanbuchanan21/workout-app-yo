@@ -68,6 +68,7 @@ export default function BodyMetricsStep({
         onChangeText={setWeight}
         keyboardType="numeric"
       />
+      {/*
       <Text style={styles.stepTitle}>Body Fat %</Text>
       <Text style={styles.stepSubtitle}>Optional, improves calorie accuracy if you know it</Text>
       <TextInput
@@ -78,6 +79,7 @@ export default function BodyMetricsStep({
         onChangeText={(t) => setBodyFatPercent(t.replace(/[^0-9.]/g, ''))}
         keyboardType="numeric"
       />
+      */}
     </View>
   );
 }

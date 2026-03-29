@@ -13,17 +13,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiPost } from '../../src/utils/api';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
-import { calculateEstimatedMacros, getWeightKg, getHeightCm, getBirthDate } from '../../src/utils/macroCalculation';
+// NUTRITION_HIDDEN: calculateEstimatedMacros import removed
+import { getWeightKg, getHeightCm, getBirthDate } from '../../src/utils/macroCalculation';
 import { validateBasicsStep, validateBodyStep } from '../../src/utils/onboardingValidation';
 import BasicInfoStep from '../../src/components/Onboarding/BasicInfoStep';
 import BodyMetricsStep from '../../src/components/Onboarding/BodyMetricsStep';
 import { ExperienceStep, ActivityStep, ScheduleStep } from '../../src/components/Onboarding/TrainingPrefsSteps';
-import { GoalStep, NutritionStep } from '../../src/components/Onboarding/GoalNutritionStep';
-import ReviewStep from '../../src/components/Onboarding/ReviewStep';
+// NUTRITION_HIDDEN: GoalStep, NutritionStep, ReviewStep imports removed
+// import { GoalStep, NutritionStep } from '../../src/components/Onboarding/GoalNutritionStep';
+// import ReviewStep from '../../src/components/Onboarding/ReviewStep';
 
-type Step = 'basics' | 'body' | 'experience' | 'activity' | 'schedule' | 'goal' | 'nutrition' | 'review';
+// NUTRITION_HIDDEN: removed 'goal', 'nutrition', 'review' steps
+type Step = 'basics' | 'body' | 'experience' | 'activity' | 'schedule';
 
-const STEPS: Step[] = ['basics', 'body', 'experience', 'activity', 'schedule', 'goal', 'nutrition', 'review'];
+const STEPS: Step[] = ['basics', 'body', 'experience', 'activity', 'schedule'];
 
 export default function Onboarding() {
   const router = useRouter();
@@ -44,29 +47,13 @@ export default function Onboarding() {
   const [unitPreference, setUnitPreference] = useState<'imperial' | 'metric'>('imperial');
   const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
   const [daysPerWeek, setDaysPerWeek] = useState(4);
-  const [goal, setGoal] = useState<'cut' | 'bulk' | 'maintain'>('cut');
-  const [targetWeight, setTargetWeight] = useState('');
-  const [targetRate, setTargetRate] = useState(0.5);
-  const [proteinPerKg, setProteinPerKg] = useState(2.2);
-  const [dietStyle, setDietStyle] = useState<'balanced' | 'low_fat' | 'low_carb'>('balanced');
+  // NUTRITION_HIDDEN: goal, targetWeight, targetRate, proteinPerKg, dietStyle, override states removed
   const [activityLevel, setActivityLevel] = useState<'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active'>('lightly_active');
   const [bodyFatPercent, setBodyFatPercent] = useState('');
-
-  // Macro overrides (empty = use calculated)
-  const [overrideCalories, setOverrideCalories] = useState<string>('');
-  const [overrideProtein, setOverrideProtein] = useState<string>('');
-  const [overrideCarbs, setOverrideCarbs] = useState<string>('');
-  const [overrideFat, setOverrideFat] = useState<string>('');
 
   const currentStep = STEPS[step];
   const weightKg = getWeightKg(weight, unitPreference);
   const heightCm = getHeightCm(heightFeet, heightInches, unitPreference);
-  const estimated = calculateEstimatedMacros({
-    weightKg, heightCm, sex,
-    birthMonth: parseInt(birthMonth), birthDay: parseInt(birthDay), birthYear: parseInt(birthYear),
-    bodyFatPercent, activityLevel, daysPerWeek,
-    goal, targetRate, proteinPerKg, dietStyle,
-  });
 
   const validateStep = (): string | null => {
     if (currentStep === 'basics') {
@@ -93,6 +80,7 @@ export default function Onboarding() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // NUTRITION_HIDDEN: hardcoded nutrition defaults
       const body: Record<string, any> = {
         displayName,
         sex,
@@ -104,19 +92,10 @@ export default function Onboarding() {
         activityLevel,
         bodyFatPercent: bodyFatPercent ? parseFloat(bodyFatPercent) : undefined,
         daysPerWeek,
-        goal,
-        targetWeightKg: targetWeight
-          ? (unitPreference === 'imperial' ? parseFloat(targetWeight) * 0.453592 : parseFloat(targetWeight))
-          : undefined,
-        targetRatePerWeek: targetRate,
-        proteinPerKg,
-        dietStyle,
+        goal: 'maintain',
+        proteinPerKg: 2.2,
+        dietStyle: 'balanced',
       };
-
-      if (overrideCalories) body.overrideCalories = parseInt(overrideCalories);
-      if (overrideProtein) body.overrideProteinG = parseInt(overrideProtein);
-      if (overrideCarbs) body.overrideCarbsG = parseInt(overrideCarbs);
-      if (overrideFat) body.overrideFatG = parseInt(overrideFat);
 
       const res = await apiPost('/onboarding/complete', body);
       const data = await res.json();
@@ -126,9 +105,10 @@ export default function Onboarding() {
         return;
       }
 
+      // NUTRITION_HIDDEN: removed calorie mention from alert
       Alert.alert(
         'Profile Set Up!',
-        `${data.nutritionPhase.calories} cal/day, now let's set up your training.`,
+        "You're all set, let's set up your training.",
         [{ text: 'Continue', onPress: async () => {
           await refreshUser();
           router.replace('/training-setup');
@@ -181,36 +161,7 @@ export default function Onboarding() {
           <ScheduleStep daysPerWeek={daysPerWeek} setDaysPerWeek={setDaysPerWeek} />
         )}
 
-        {currentStep === 'goal' && (
-          <GoalStep
-            goal={goal} setGoal={setGoal} setProteinPerKg={setProteinPerKg}
-            targetWeight={targetWeight} setTargetWeight={setTargetWeight}
-            targetRate={targetRate} setTargetRate={setTargetRate}
-            unitPreference={unitPreference} weight={weight}
-          />
-        )}
-
-        {currentStep === 'nutrition' && (
-          <NutritionStep
-            goal={goal} proteinPerKg={proteinPerKg} setProteinPerKg={setProteinPerKg}
-            dietStyle={dietStyle} setDietStyle={setDietStyle}
-            weight={weight} unitPreference={unitPreference}
-          />
-        )}
-
-        {currentStep === 'review' && (
-          <ReviewStep
-            displayName={displayName} goal={goal} activityLevel={activityLevel}
-            daysPerWeek={daysPerWeek} experienceLevel={experienceLevel}
-            proteinPerKg={proteinPerKg} dietStyle={dietStyle}
-            unitPreference={unitPreference} weightKg={weightKg}
-            estimated={estimated}
-            overrideCalories={overrideCalories} setOverrideCalories={setOverrideCalories}
-            overrideProtein={overrideProtein} setOverrideProtein={setOverrideProtein}
-            overrideCarbs={overrideCarbs} setOverrideCarbs={setOverrideCarbs}
-            overrideFat={overrideFat} setOverrideFat={setOverrideFat}
-          />
-        )}
+        {/* NUTRITION_HIDDEN: goal, nutrition, review steps removed */}
       </ScrollView>
 
       {/* Navigation buttons */}
@@ -222,11 +173,11 @@ export default function Onboarding() {
         )}
         <TouchableOpacity
           style={[styles.nextButton, isSubmitting && styles.buttonDisabled]}
-          onPress={currentStep === 'review' ? handleSubmit : next}
+          onPress={currentStep === 'schedule' ? handleSubmit : next}
           disabled={isSubmitting}
         >
           <Text style={styles.nextButtonText}>
-            {currentStep === 'review'
+            {currentStep === 'schedule'
               ? (isSubmitting ? 'Setting up...' : 'Start Training')
               : 'Continue'}
           </Text>

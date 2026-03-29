@@ -10,7 +10,7 @@ import {
 
 const router = Router();
 
-// Update volume targets (with MEV/MRV guardrails)
+// Update volume targets (with volume guardrails)
 router.put('/volume-targets', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const schema = z.object({
@@ -34,11 +34,11 @@ router.put('/volume-targets', requireAuth, async (req: AuthRequest, res: Respons
     for (const [muscle, sets] of Object.entries(volumeTargets)) {
       const guardrail = effectiveGuardrails[muscle];
       if (guardrail) {
-        if (sets < guardrail.mev) {
-          errors.push(`${muscle}: minimum ${guardrail.mev} sets (MEV)`);
+        if (sets < guardrail.floor) {
+          errors.push(`${muscle}: minimum ${guardrail.floor} sets`);
         }
-        if (sets > guardrail.mrv) {
-          errors.push(`${muscle}: maximum ${guardrail.mrv} sets (MRV)`);
+        if (sets > guardrail.ceiling) {
+          errors.push(`${muscle}: maximum ${guardrail.ceiling} sets`);
         }
       }
     }
@@ -86,15 +86,15 @@ router.put('/volume-guardrails', requireAuth, async (req: AuthRequest, res: Resp
       customGuardrails: z.record(
         z.string(),
         z.object({
-          mev: z.number().int().min(0).optional(),
-          mrv: z.number().int().min(1).optional(),
+          floor: z.number().int().min(0).optional(),
+          ceiling: z.number().int().min(1).optional(),
         })
       ),
     });
 
     const { customGuardrails } = schema.parse(req.body);
 
-    // Validate mev < mrv for each muscle
+    // Validate floor < ceiling for each muscle
     const errors: string[] = [];
     for (const [muscle, overrides] of Object.entries(customGuardrails)) {
       const defaults = VOLUME_GUARDRAILS[muscle];
@@ -102,10 +102,10 @@ router.put('/volume-guardrails', requireAuth, async (req: AuthRequest, res: Resp
         errors.push(`Unknown muscle group: ${muscle}`);
         continue;
       }
-      const mev = overrides.mev ?? defaults.mev;
-      const mrv = overrides.mrv ?? defaults.mrv;
-      if (mev >= mrv) {
-        errors.push(`${muscle}: MEV (${mev}) must be less than MRV (${mrv})`);
+      const floor = overrides.floor ?? defaults.floor;
+      const ceiling = overrides.ceiling ?? defaults.ceiling;
+      if (floor >= ceiling) {
+        errors.push(`${muscle}: floor (${floor}) must be less than ceiling (${ceiling})`);
       }
     }
 
@@ -131,8 +131,8 @@ router.put('/volume-guardrails', requireAuth, async (req: AuthRequest, res: Resp
     for (const [muscle, overrides] of Object.entries(merged)) {
       const defaults = VOLUME_GUARDRAILS[muscle];
       if (defaults &&
-        (overrides.mev === undefined || overrides.mev === defaults.mev) &&
-        (overrides.mrv === undefined || overrides.mrv === defaults.mrv)) {
+        (overrides.floor === undefined || overrides.floor === defaults.floor) &&
+        (overrides.ceiling === undefined || overrides.ceiling === defaults.ceiling)) {
         delete merged[muscle];
       }
     }

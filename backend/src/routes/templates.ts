@@ -19,7 +19,10 @@ router.get('/templates', requireAuth, async (req: AuthRequest, res: Response) =>
 
     const where: any = {};
     if (splitType) where.splitType = splitType;
-    if (daysPerWeek) where.daysPerWeek = parseInt(daysPerWeek);
+    if (daysPerWeek) {
+      const days = parseInt(daysPerWeek);
+      where.daysPerWeek = { gte: Math.max(days - 1, 1), lte: days };
+    }
 
     const templates = await prisma.programTemplate.findMany({
       where,

@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+});
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -27,25 +29,25 @@ export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      handleGoogleLogin(id_token);
-    }
-  }, [response]);
-
-  const handleGoogleLogin = async (idToken: string) => {
+  const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      const idToken = response.data?.idToken;
+      if (!idToken) {
+        throw new Error('No ID token returned from Google');
+      }
       await loginWithGoogle(idToken);
       router.replace('/');
     } catch (err: any) {
-      Alert.alert('Google Sign-In Failed', err.message);
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled, do nothing
+      } else if (err.code === statusCodes.IN_PROGRESS) {
+        // Sign in already in progress
+      } else {
+        Alert.alert('Google Sign-In Failed', err.message);
+      }
     } finally {
       setIsGoogleLoading(false);
     }
@@ -122,9 +124,9 @@ export default function Login() {
           </View>
 
           <TouchableOpacity
-            style={[styles.googleButton, (isGoogleLoading || !request) && styles.buttonDisabled]}
-            onPress={() => promptAsync()}
-            disabled={isGoogleLoading || !request}
+            style={[styles.googleButton, isGoogleLoading && styles.buttonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={isGoogleLoading}
           >
             <Text style={styles.googleButtonText}>
               {isGoogleLoading ? 'Signing in...' : 'Continue with Google'}

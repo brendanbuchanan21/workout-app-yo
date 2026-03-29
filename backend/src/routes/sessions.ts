@@ -151,13 +151,15 @@ router.get('/prescription/:dayLabel', requireAuth, async (req: AuthRequest, res:
     const catalogEntries = catalogIds.length > 0
       ? await prisma.exerciseCatalog.findMany({
           where: { id: { in: catalogIds } },
-          select: { id: true, repRangeLow: true, repRangeHigh: true },
+          select: { id: true, repRangeLow: true, repRangeHigh: true, movementType: true },
         })
       : [];
 
     const repRanges: Record<string, { low: number; high: number }> = {};
+    const movementTypes: Record<string, string> = {};
     for (const entry of catalogEntries) {
       repRanges[entry.id] = { low: entry.repRangeLow, high: entry.repRangeHigh };
+      movementTypes[entry.id] = entry.movementType;
     }
 
     function mapSessionExercises(session: typeof lastSession) {
@@ -165,6 +167,7 @@ router.get('/prescription/:dayLabel', requireAuth, async (req: AuthRequest, res:
         catalogId: e.catalogId,
         exerciseName: e.exerciseName,
         muscleGroup: e.muscleGroup,
+        movementType: (e.catalogId ? movementTypes[e.catalogId] : 'isolation') as 'compound' | 'isolation',
         sets: e.sets.map((s) => ({
           setNumber: s.setNumber,
           actualWeightKg: s.actualWeightKg,
@@ -239,6 +242,7 @@ router.post('/session/create', requireAuth, async (req: AuthRequest, res: Respon
         weekNumber: block.currentWeek,
         dayLabel: data.dayLabel,
         status: 'in_progress',
+        startedAt: new Date(),
       },
     });
 
@@ -292,6 +296,188 @@ router.post('/session/create', requireAuth, async (req: AuthRequest, res: Respon
       return;
     }
     console.error('Create session error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get program structure — exercises for each day label
+router.get('/program/days', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, block.customDays as any);
+
+    // For each day label, find the most recent session to get exercise definitions
+    const days = await Promise.all(
+      dayLabels.map(async (dl, i) => {
+        const session = await prisma.workoutSession.findFirst({
+          where: { trainingBlockId: block.id, dayLabel: dl },
+          orderBy: { weekNumber: 'desc' },
+          include: {
+            exercises: {
+              orderBy: { orderIndex: 'asc' },
+              include: { sets: { orderBy: { setNumber: 'asc' } } },
+            },
+          },
+        });
+
+        return {
+          dayLabel: dl,
+          muscleGroups: getMuscleGroupsForDay(block.splitType, i, block.customDays as any),
+          exercises: session?.exercises.map((e) => ({
+            id: e.id,
+            catalogId: e.catalogId,
+            exerciseName: e.exerciseName,
+            muscleGroup: e.muscleGroup,
+            sets: e.sets.length,
+            repRangeLow: e.sets.length > 0 ? Math.min(...e.sets.map((s) => s.targetReps || 6)) : 6,
+            repRangeHigh: e.sets.length > 0 ? Math.max(...e.sets.map((s) => s.targetReps || 12)) : 12,
+          })) || [],
+        };
+      })
+    );
+
+    res.json({ days });
+  } catch (error) {
+    console.error('Get program days error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update exercises for a day label across all future planned sessions
+const updateDayExercisesSchema = z.object({
+  exercises: z.array(z.object({
+    catalogId: z.string().nullable().optional(),
+    exerciseName: z.string(),
+    muscleGroup: z.string(),
+    sets: z.number().int().min(1).max(10),
+    repRangeLow: z.number().int().optional(),
+    repRangeHigh: z.number().int().optional(),
+  })),
+});
+
+router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = updateDayExercisesSchema.parse(req.body);
+    const dayLabel = decodeURIComponent(String(req.params.dayLabel));
+
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    // Find all planned sessions for this day label (current week onward)
+    const plannedSessions = await prisma.workoutSession.findMany({
+      where: {
+        trainingBlockId: block.id,
+        dayLabel,
+        status: 'planned',
+        weekNumber: { gte: block.currentWeek },
+      },
+    });
+
+    // Update each planned session: delete old exercises, create new ones
+    for (const session of plannedSessions) {
+      const rir = getRirForWeek(session.weekNumber, block.lengthWeeks, block);
+      const isDeload = session.weekNumber === block.lengthWeeks;
+
+      // Delete existing exercises (cascades to sets)
+      await prisma.exercise.deleteMany({
+        where: { workoutSessionId: session.id },
+      });
+
+      // Create new exercises
+      for (let i = 0; i < data.exercises.length; i++) {
+        const exDef = data.exercises[i];
+        const baseSets = exDef.sets;
+        const weekSets = isDeload ? Math.ceil(baseSets * 0.5) : baseSets;
+        const midReps = Math.round(((exDef.repRangeLow || 6) + (exDef.repRangeHigh || 12)) / 2);
+
+        const exercise = await prisma.exercise.create({
+          data: {
+            workoutSessionId: session.id,
+            catalogId: exDef.catalogId || null,
+            orderIndex: i,
+            exerciseName: exDef.exerciseName,
+            muscleGroup: exDef.muscleGroup,
+          },
+        });
+
+        for (let s = 1; s <= weekSets; s++) {
+          await prisma.exerciseSet.create({
+            data: {
+              exerciseId: exercise.id,
+              setNumber: s,
+              setType: 'working',
+              targetReps: midReps,
+              targetRir: rir,
+            },
+          });
+        }
+      }
+    }
+
+    res.json({ message: 'Program updated', sessionsUpdated: plannedSessions.length });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Update day exercises error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reorder days in the program
+const reorderDaysSchema = z.object({
+  days: z.array(z.object({
+    dayLabel: z.string().min(1),
+    muscleGroups: z.array(z.string()).min(1),
+  })),
+});
+
+router.put('/program/reorder-days', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = reorderDaysSchema.parse(req.body);
+
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    if (data.days.length !== block.daysPerWeek) {
+      res.status(400).json({ error: `Expected ${block.daysPerWeek} days, got ${data.days.length}` });
+      return;
+    }
+
+    // Save reordered days as customDays on the training block
+    await prisma.trainingBlock.update({
+      where: { id: block.id },
+      data: { customDays: data.days },
+    });
+
+    res.json({ message: 'Day order updated' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Reorder days error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

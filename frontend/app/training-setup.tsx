@@ -20,6 +20,10 @@ export default function TrainingSetup() {
     templates, loadingTemplates,
     selectedTemplate, setSelectedTemplate,
     dayOrder, setDayOrder,
+    templateLengthWeeks, setTemplateLengthWeeks,
+    templateStartingRir, setTemplateStartingRir,
+    templateRirFloor, setTemplateRirFloor,
+    templateDeloadRir, setTemplateDeloadRir,
     daysPerWeek, splitType, customDays,
     editingDayIndex, setEditingDayIndex, setCustomDays,
     volumeTargets, setVolumeTargets,
@@ -97,6 +101,78 @@ export default function TrainingSetup() {
           />
         )}
 
+        {screen === 'template_customize' && selectedTemplate && (
+          <View>
+            <Text style={styles.headerTitle}>Customize Program</Text>
+            <Text style={styles.headerSubtitle}>
+              Adjust {selectedTemplate.name} to your preferences
+            </Text>
+
+            <Text style={styles.sectionTitle}>Block Length</Text>
+            <View style={styles.optionRow}>
+              {[4, 5, 6, 7, 8].map((w) => (
+                <TouchableOpacity
+                  key={w}
+                  style={[styles.optionPill, templateLengthWeeks === w && styles.optionPillSelected]}
+                  onPress={() => setTemplateLengthWeeks(w)}
+                >
+                  <Text style={[styles.optionPillText, templateLengthWeeks === w && styles.optionPillTextSelected]}>
+                    {w} weeks
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.sectionTitle}>Starting RIR</Text>
+            <Text style={styles.settingDesc}>Reps in reserve for week 1</Text>
+            <View style={styles.optionRow}>
+              {[4, 3, 2, 1].map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.optionPill, templateStartingRir === r && styles.optionPillSelected]}
+                  onPress={() => setTemplateStartingRir(r)}
+                >
+                  <Text style={[styles.optionPillText, templateStartingRir === r && styles.optionPillTextSelected]}>
+                    RIR {r}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.sectionTitle}>RIR Floor</Text>
+            <Text style={styles.settingDesc}>Lowest RIR before deload week</Text>
+            <View style={styles.optionRow}>
+              {[2, 1, 0].map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.optionPill, templateRirFloor === r && styles.optionPillSelected]}
+                  onPress={() => setTemplateRirFloor(r)}
+                >
+                  <Text style={[styles.optionPillText, templateRirFloor === r && styles.optionPillTextSelected]}>
+                    RIR {r}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.sectionTitle}>Deload RIR</Text>
+            <Text style={styles.settingDesc}>RIR for the final recovery week</Text>
+            <View style={styles.optionRow}>
+              {[5, 6, 7].map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.optionPill, templateDeloadRir === r && styles.optionPillSelected]}
+                  onPress={() => setTemplateDeloadRir(r)}
+                >
+                  <Text style={[styles.optionPillText, templateDeloadRir === r && styles.optionPillTextSelected]}>
+                    RIR {r}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {screen === 'plan' && renderSplitOptions(
           'Build Your Training Block',
           `Training ${daysPerWeek} days per week, choose your split`,
@@ -134,6 +210,7 @@ export default function TrainingSetup() {
             style={styles.backButton}
             onPress={() => {
               if (screen === 'template_detail') setScreen('template_browse');
+              else if (screen === 'template_customize') setScreen('template_detail');
               else if (screen === 'plan_volume') setScreen('plan');
               else setScreen('choose');
             }}
@@ -143,13 +220,37 @@ export default function TrainingSetup() {
         )}
 
         {screen === 'template_detail' && selectedTemplate && (
+          <>
+            <TouchableOpacity
+              style={[styles.nextButton, { flex: 1, backgroundColor: COLORS.bg_elevated, borderWidth: 1, borderColor: COLORS.border }, isSubmitting && styles.buttonDisabled]}
+              onPress={() => {
+                setTemplateLengthWeeks(selectedTemplate.lengthWeeks);
+                setScreen('template_customize');
+              }}
+              disabled={isSubmitting}
+            >
+              <Text style={[styles.nextButtonText, { color: COLORS.text_primary }]}>Customize</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.nextButton, isSubmitting && styles.buttonDisabled]}
+              onPress={() => applyTemplate(selectedTemplate)}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.nextButtonText}>
+                {isSubmitting ? 'Setting up...' : 'Use Defaults'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {screen === 'template_customize' && selectedTemplate && (
           <TouchableOpacity
             style={[styles.nextButton, isSubmitting && styles.buttonDisabled]}
-            onPress={() => applyTemplate(selectedTemplate)}
+            onPress={() => applyTemplate(selectedTemplate, true)}
             disabled={isSubmitting}
           >
             <Text style={styles.nextButtonText}>
-              {isSubmitting ? 'Setting up...' : 'Use This Program'}
+              {isSubmitting ? 'Setting up...' : 'Apply Program'}
             </Text>
           </TouchableOpacity>
         )}
@@ -287,5 +388,37 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  optionPill: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+  },
+  optionPillSelected: {
+    backgroundColor: COLORS.accent_subtle,
+    borderColor: COLORS.accent_muted,
+  },
+  optionPillText: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  optionPillTextSelected: {
+    color: COLORS.accent_light,
+  },
+  settingDesc: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+    marginBottom: SPACING.sm,
+    marginTop: -SPACING.xs,
   },
 });

@@ -1,20 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
+import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
-import MacroRing from '../../src/components/Home/MacroRing';
-
-interface NutritionPhase {
-  phaseType: string;
-  currentCalories: number;
-  currentProteinG: number;
-  currentCarbsG: number;
-  currentFatG: number;
-}
+// NUTRITION_HIDDEN: MacroRing import removed
 
 interface TodayContext {
   trainingBlockId: string;
@@ -37,11 +29,7 @@ interface ActiveTrainingBlock {
   workoutSessions: any[];
 }
 
-const PHASE_LABELS: Record<string, string> = {
-  cut: 'CUTTING',
-  bulk: 'BULKING',
-  maintain: 'MAINTAINING',
-};
+// NUTRITION_HIDDEN: PHASE_LABELS removed
 
 const MUSCLE_LABELS: Record<string, string> = {
   chest: 'Chest', back: 'Back', quads: 'Quads', hamstrings: 'Hamstrings',
@@ -52,47 +40,44 @@ const MUSCLE_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const [phase, setPhase] = useState<NutritionPhase | null>(null);
-  const [today, setToday] = useState<TodayContext | null>(null);
-  const [trainingBlock, setTrainingBlock] = useState<ActiveTrainingBlock | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [todayNutrition, setTodayNutrition] = useState({ calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+  // NUTRITION_HIDDEN: todayNutrition state removed
 
-  const loadDashboard = async () => {
-    try {
-      const [userRes, blockRes, todayRes] = await Promise.all([
-        apiGet('/user/me'),
-        apiGet('/training/block/active'),
-        apiGet('/training/today'),
-      ]);
+  const userQuery = useQuery({
+    queryKey: ['user', 'me'],
+    queryFn: async () => {
+      const res = await apiGet('/user/me');
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        if (userData.nutritionPhase) setPhase(userData.nutritionPhase);
-      }
+  const blockQuery = useQuery({
+    queryKey: ['training', 'block', 'active'],
+    queryFn: async () => {
+      const res = await apiGet('/training/block/active');
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
-      if (blockRes.ok) {
-        const blockData = await blockRes.json();
-        setTrainingBlock(blockData.trainingBlock);
-      }
+  const todayQuery = useQuery({
+    queryKey: ['training', 'today'],
+    queryFn: async () => {
+      const res = await apiGet('/training/today');
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
-      if (todayRes.ok) {
-        const todayData = await todayRes.json();
-        setToday(todayData);
-      }
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useRefreshOnFocus(() => {
+    userQuery.refetch();
+    blockQuery.refetch();
+    todayQuery.refetch();
+  });
 
-  // Reload data when tab comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadDashboard();
-    }, [])
-  );
+  const loading = userQuery.isLoading || blockQuery.isLoading || todayQuery.isLoading;
+  const trainingBlock: ActiveTrainingBlock | null = blockQuery.data?.trainingBlock ?? null;
+  const today: TodayContext | null = todayQuery.data ?? null;
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -145,10 +130,8 @@ export default function Dashboard() {
   };
 
   const workoutInfo = getWorkoutInfo();
-  const phaseLabel = phase ? PHASE_LABELS[phase.phaseType] || phase.phaseType.toUpperCase() : 'TRAINING';
-  const weekLabel = trainingBlock ? `WEEK ${trainingBlock.currentWeek}` : '';
-
-  const macroTargets = phase || { currentCalories: 0, currentProteinG: 0, currentCarbsG: 0, currentFatG: 0 };
+  // NUTRITION_HIDDEN: phase badge now shows training week only
+  const weekLabel = trainingBlock ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}` : '';
 
   if (loading) {
     return (
@@ -166,7 +149,7 @@ export default function Dashboard() {
         {/* Phase badge */}
         <View style={styles.phaseBadge}>
           <View style={styles.phaseDot} />
-          <Text style={styles.phaseText}>{phaseLabel}{weekLabel ? ` -- ${weekLabel}` : ''}</Text>
+          <Text style={styles.phaseText}>{weekLabel || 'TRAINING'}</Text>
         </View>
 
         {/* Greeting */}
@@ -178,15 +161,6 @@ export default function Dashboard() {
               ? 'Pick a day and build your workout'
               : `${workoutInfo.title} today`}
         </Text>
-
-        {/* Macro rings */}
-        <View style={styles.macroCard}>
-          <MacroRing label="Calories" current={todayNutrition.calories} target={macroTargets.currentCalories} color={COLORS.accent_primary} />
-          <MacroRing label="Protein" current={todayNutrition.proteinG} target={macroTargets.currentProteinG} color={COLORS.success} />
-          <MacroRing label="Carbs" current={todayNutrition.carbsG} target={macroTargets.currentCarbsG} color={COLORS.warning} />
-          <MacroRing label="Fat" current={todayNutrition.fatG} target={macroTargets.currentFatG} color="#A78BFA" />
-        </View>
-
         {/* Today's workout card */}
         <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
           <View style={styles.workoutCardHeader}>
@@ -203,15 +177,10 @@ export default function Dashboard() {
 
         {/* Quick actions */}
         <View style={styles.quickActions}>
-          {[
-            { label: 'Log Meal', onPress: () => router.push('/(tabs)/nutrition') },
-            { label: 'Log Weight', onPress: () => router.push('/(tabs)/progress') },
-            { label: 'Check-in', onPress: () => {} },
-          ].map((action) => (
-            <TouchableOpacity key={action.label} style={styles.quickAction} onPress={action.onPress}>
-              <Text style={styles.quickActionLabel}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {/* NUTRITION_HIDDEN: removed Log Meal and Check-in, added View PRs */}
+          <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/(tabs)/progress')}>
+            <Text style={styles.quickActionLabel}>View PRs</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Settings / Logout */}

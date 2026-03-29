@@ -80,7 +80,7 @@ export default function ExerciseCreateForm({
       </View>
 
       <TouchableOpacity style={styles.createExerciseBtn} onPress={onCreateCustomExercise}>
-        <Text style={styles.createExerciseBtnText}>Create & Add</Text>
+        <Text style={styles.createExerciseBtnText}>Create & Add To Exercise</Text>
       </TouchableOpacity>
     </View>
   );

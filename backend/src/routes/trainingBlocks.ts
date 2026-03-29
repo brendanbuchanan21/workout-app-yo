@@ -148,8 +148,8 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
       for (const [muscle, sets] of Object.entries(data.volumeTargets)) {
         const guardrail = effectiveGuardrails[muscle];
         if (guardrail) {
-          if (sets < guardrail.mev) errors.push(`${muscle}: minimum ${guardrail.mev} sets (MEV)`);
-          if (sets > guardrail.mrv) errors.push(`${muscle}: maximum ${guardrail.mrv} sets (MRV)`);
+          if (sets < guardrail.floor) errors.push(`${muscle}: minimum ${guardrail.floor} sets`);
+          if (sets > guardrail.ceiling) errors.push(`${muscle}: maximum ${guardrail.ceiling} sets`);
         }
       }
       if (errors.length > 0) {
@@ -163,10 +163,6 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
 
     if (data.splitType !== undefined) {
       updateData.splitType = data.splitType;
-      // Clear customDays when switching away from custom
-      if (data.splitType !== 'custom') {
-        updateData.customDays = null;
-      }
     }
     if (data.daysPerWeek !== undefined) updateData.daysPerWeek = data.daysPerWeek;
     if (data.customDays !== undefined) updateData.customDays = data.customDays;

@@ -189,6 +189,7 @@ model WorkoutSession {
   weekNumber    Int
   dayLabel      String
   status        String   @default("planned")
+  startedAt     DateTime?
   completedAt   DateTime?
 
   exercises     Exercise[]

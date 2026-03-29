@@ -14,6 +14,7 @@ interface SessionExercise {
 interface SessionWithExercises {
   id: string;
   trainingBlockId: string;
+  startedAt: Date | null;
   createdAt: Date;
   exercises: SessionExercise[];
 }
@@ -140,8 +141,9 @@ export async function computeWorkoutSummary(
     }
   }
 
-  // Duration: completedAt - createdAt
-  const durationSeconds = Math.round((completedAt.getTime() - session.createdAt.getTime()) / 1000);
+  // Duration: completedAt - startedAt (fall back to createdAt for old sessions)
+  const startTime = session.startedAt || session.createdAt;
+  const durationSeconds = Math.round((completedAt.getTime() - startTime.getTime()) / 1000);
 
   // Completion rate
   const completionRate = totalPlannedSets > 0 ? totalSets / totalPlannedSets : 0;

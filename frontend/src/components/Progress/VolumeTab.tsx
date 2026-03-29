@@ -76,7 +76,7 @@ export default function VolumeTab({ currentVolume, volumeTargets, volumeWeeks }:
                       styles.volumeBar,
                       {
                         width: `${pct * 100}%`,
-                        backgroundColor: getMuscleColor(muscle),
+                        backgroundColor: COLORS.success,
                       },
                     ]}
                   />
@@ -122,7 +122,7 @@ export default function VolumeTab({ currentVolume, volumeTargets, volumeWeeks }:
                         styles.volumeBar,
                         {
                           width: `${(total / maxSets) * 100}%`,
-                          backgroundColor: getMuscleColor(muscle),
+                          backgroundColor: COLORS.success,
                         },
                       ]}
                     />

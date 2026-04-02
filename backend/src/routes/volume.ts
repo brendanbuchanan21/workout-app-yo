@@ -221,13 +221,22 @@ router.get('/volume-summary', requireAuth, async (req: AuthRequest, res: Respons
   }
 });
 
-// All-time volume history per muscle group (weekly buckets)
+// Volume history per muscle group (weekly buckets), optionally filtered by range
 router.get('/volume-history', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    const rangeMonths: Record<string, number> = { '1m': 1, '3m': 3, '6m': 6, '1y': 12 };
+    const rangeParam = typeof req.query.range === 'string' ? req.query.range : undefined;
+    const dateFilter: any = { not: null };
+    if (rangeParam && rangeMonths[rangeParam]) {
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - rangeMonths[rangeParam] * 2);
+      dateFilter.gte = cutoff;
+    }
+
     const sessions = await prisma.workoutSession.findMany({
       where: {
         userId: req.userId!,
-        completedAt: { not: null },
+        completedAt: dateFilter,
       },
       include: {
         exercises: {

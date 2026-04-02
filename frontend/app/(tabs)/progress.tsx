@@ -21,11 +21,6 @@ interface WeightEntry {
   weight: number;
 }
 
-interface VolumeWeek {
-  weekStart: string;
-  muscles: Record<string, number>;
-}
-
 interface ActivityDay {
   count: number;
   labels: string[];
@@ -49,16 +44,6 @@ export default function Progress() {
         date: e.date.split('T')[0],
         weight: Math.round(e.weightKg * 2.20462 * 10) / 10,
       })) || []) as WeightEntry[];
-    },
-  });
-
-  const volumeHistoryQuery = useQuery({
-    queryKey: ['training', 'volume-history'],
-    queryFn: async () => {
-      const res = await apiGet('/training/volume-history');
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.weeks || []) as VolumeWeek[];
     },
   });
 
@@ -87,16 +72,14 @@ export default function Progress() {
 
   useRefreshOnFocus(() => {
     weightQuery.refetch();
-    volumeHistoryQuery.refetch();
     volumeSummaryQuery.refetch();
     activityQuery.refetch();
   });
 
-  const loading = weightQuery.isLoading || volumeHistoryQuery.isLoading
+  const loading = weightQuery.isLoading
     || volumeSummaryQuery.isLoading || activityQuery.isLoading;
 
   const entries = weightQuery.data ?? [];
-  const volumeWeeks = volumeHistoryQuery.data ?? [];
   const currentVolume = volumeSummaryQuery.data?.completed ?? {};
   const volumeTargets = volumeSummaryQuery.data?.targets ?? {};
   const activity = activityQuery.data ?? {};
@@ -159,7 +142,7 @@ export default function Progress() {
                 }
               />
             )}
-        {tab === 'volume' && <VolumeTab currentVolume={currentVolume} volumeTargets={volumeTargets} volumeWeeks={volumeWeeks} />}
+        {tab === 'volume' && <VolumeTab currentVolume={currentVolume} volumeTargets={volumeTargets} />}
         {tab === 'activity' && <ActivityTab activity={activity} />}
         {tab === 'weight' && <WeightTab entries={entries} newWeight={newWeight} setNewWeight={setNewWeight} handleLogWeight={handleLogWeight} />}
       </ScrollView>

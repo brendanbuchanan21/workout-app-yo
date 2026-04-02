@@ -1,7 +1,15 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
+import { useQuery } from '@tanstack/react-query';
+
+import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import TimeRangePicker from '../shared/TimeRangePicker';
 import VolumeChart from './VolumeChart';
+import VolumeThenVsNow from './VolumeThenVsNow';
+
+type VolumeRange = '1m' | '3m' | '6m' | '1y';
 
 interface VolumeWeek {
   weekStart: string;
@@ -11,48 +19,59 @@ interface VolumeWeek {
 interface VolumeTabProps {
   currentVolume: Record<string, number>;
   volumeTargets: Record<string, number>;
-  volumeWeeks: VolumeWeek[];
 }
 
-const MUSCLE_COLORS: Record<string, string> = {
-  chest: '#E8912D',
-  back: '#4ADE80',
-  quads: '#60A5FA',
-  hamstrings: '#A78BFA',
-  side_delts: '#F472B6',
-  rear_delts: '#FB923C',
-  biceps: '#34D399',
-  triceps: '#FBBF24',
-  glutes: '#C084FC',
-  calves: '#F87171',
-  traps: '#38BDF8',
-  abs: '#FB7185',
+const RANGE_OPTIONS: { value: VolumeRange; label: string }[] = [
+  { value: '1m', label: '1M' },
+  { value: '3m', label: '3M' },
+  { value: '6m', label: '6M' },
+  { value: '1y', label: '1Y' },
+];
+
+const RANGE_MONTHS: Record<VolumeRange, number> = {
+  '1m': 1, '3m': 3, '6m': 6, '1y': 12,
 };
-
-function getMuscleColor(muscle: string): string {
-  return MUSCLE_COLORS[muscle] || COLORS.accent_primary;
-}
 
 function formatMuscle(muscle: string): string {
   return muscle.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function VolumeTab({ currentVolume, volumeTargets, volumeWeeks }: VolumeTabProps) {
+export default function VolumeTab({ currentVolume, volumeTargets }: VolumeTabProps) {
+  const [range, setRange] = useState<VolumeRange>('3m');
+
+  const volumeHistoryQuery = useQuery({
+    queryKey: ['training', 'volume-history', range],
+    queryFn: async () => {
+      const res = await apiGet(`/training/volume-history?range=${range}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.weeks || []) as VolumeWeek[];
+    },
+  });
+
+  const volumeWeeks = volumeHistoryQuery.data ?? [];
+
   const allMuscles = Array.from(new Set([
     ...Object.keys(currentVolume),
     ...Object.keys(volumeTargets),
   ])).sort();
 
-  const allTimeMuscles = new Set<string>();
+  const chartMuscles = new Set<string>();
   for (const week of volumeWeeks) {
     for (const muscle of Object.keys(week.muscles)) {
-      allTimeMuscles.add(muscle);
+      chartMuscles.add(muscle);
     }
   }
-  const chartMuscles = Array.from(allTimeMuscles).sort();
+  const sortedChartMuscles = Array.from(chartMuscles).sort();
 
   return (
     <>
+      <TimeRangePicker
+        selected={range}
+        onSelect={setRange}
+        options={RANGE_OPTIONS}
+      />
+
       <Text style={styles.sectionTitle}>This Week</Text>
       {allMuscles.length === 0 ? (
         <View style={styles.emptyState}>
@@ -98,61 +117,62 @@ export default function VolumeTab({ currentVolume, volumeTargets, volumeWeeks }:
         </View>
       )}
 
-      {volumeWeeks.length > 0 && chartMuscles.length > 0 && (() => {
-        const allTimeTotals: Record<string, number> = {};
-        for (const week of volumeWeeks) {
-          for (const [muscle, sets] of Object.entries(week.muscles)) {
-            allTimeTotals[muscle] = (allTimeTotals[muscle] || 0) + sets;
-          }
-        }
-        const sortedMuscles = Object.entries(allTimeTotals).sort((a, b) => b[1] - a[1]);
-        const maxSets = sortedMuscles.length > 0 ? sortedMuscles[0][1] : 1;
-
-        return (
-          <>
-            <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>All-Time Volume</Text>
-            <Text style={styles.chartSubtitle}>Total sets per muscle group</Text>
-            <View style={styles.volumeCard}>
-              {sortedMuscles.map(([muscle, total]) => (
-                <View key={muscle} style={styles.volumeRow}>
-                  <Text style={styles.volumeLabel}>{formatMuscle(muscle)}</Text>
-                  <View style={styles.volumeBarContainer}>
-                    <View
-                      style={[
-                        styles.volumeBar,
-                        {
-                          width: `${(total / maxSets) * 100}%`,
-                          backgroundColor: COLORS.success,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.volumeCount}>{total}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        );
-      })()}
-
-      {volumeWeeks.length > 1 && chartMuscles.length > 0 && (
+      {volumeHistoryQuery.isLoading ? (
+        <ActivityIndicator
+          size="small"
+          color={COLORS.accent_primary}
+          style={{ marginTop: SPACING.xxl }}
+        />
+      ) : (
         <>
-          <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Volume Over Time</Text>
-          <Text style={styles.chartSubtitle}>Weekly sets per muscle group</Text>
-          <VolumeChart volumeWeeks={volumeWeeks} muscles={chartMuscles} />
+          {volumeWeeks.length > 0 && (
+            <View style={{ marginTop: SPACING.xxl }}>
+              <VolumeThenVsNow
+                volumeWeeks={volumeWeeks}
+                rangeMonths={RANGE_MONTHS[range]}
+              />
+            </View>
+          )}
 
-          <View style={styles.legendContainer}>
-            {chartMuscles.map((muscle) => (
-              <View key={muscle} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: getMuscleColor(muscle) }]} />
-                <Text style={styles.legendText}>{formatMuscle(muscle)}</Text>
+          {volumeWeeks.length > 1 && sortedChartMuscles.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Volume Over Time</Text>
+              <Text style={styles.chartSubtitle}>Weekly sets per muscle group</Text>
+              <VolumeChart volumeWeeks={volumeWeeks} muscles={sortedChartMuscles} />
+
+              <View style={styles.legendContainer}>
+                {sortedChartMuscles.map((muscle) => (
+                  <View key={muscle} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: getMuscleColor(muscle) }]} />
+                    <Text style={styles.legendText}>{formatMuscle(muscle)}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </>
       )}
     </>
   );
+}
+
+const MUSCLE_COLORS: Record<string, string> = {
+  chest: '#E8912D',
+  back: '#4ADE80',
+  quads: '#60A5FA',
+  hamstrings: '#A78BFA',
+  side_delts: '#F472B6',
+  rear_delts: '#FB923C',
+  biceps: '#34D399',
+  triceps: '#FBBF24',
+  glutes: '#C084FC',
+  calves: '#F87171',
+  traps: '#38BDF8',
+  abs: '#FB7185',
+};
+
+function getMuscleColor(muscle: string): string {
+  return MUSCLE_COLORS[muscle] || COLORS.accent_primary;
 }
 
 const styles = StyleSheet.create({

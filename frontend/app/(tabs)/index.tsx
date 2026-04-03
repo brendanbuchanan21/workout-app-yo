@@ -38,7 +38,7 @@ const MUSCLE_LABELS: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   // NUTRITION_HIDDEN: todayNutrition state removed
 
@@ -183,9 +183,10 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Settings / Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutText}>Sign Out</Text>
+        {/* Profile & Settings */}
+        <TouchableOpacity style={styles.settingsCard} onPress={() => router.push('/settings')}>
+          <Text style={styles.settingsLabel}>Profile & Settings</Text>
+          <Text style={styles.settingsChevron}>&#x203A;</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -308,12 +309,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  logoutButton: {
-    paddingVertical: SPACING.md,
+  settingsCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: SPACING.lg,
+    backgroundColor: COLORS.bg_secondary,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
   },
-  logoutText: {
+  settingsLabel: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  settingsChevron: {
     color: COLORS.text_tertiary,
-    fontSize: 13,
+    fontSize: 20,
+    fontWeight: '600',
   },
 });

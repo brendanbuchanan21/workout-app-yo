@@ -3,12 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../../src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
+
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   const icons: Record<string, string | React.ReactNode> = {
     Home: <Ionicons name="home" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
     Train: <Ionicons name="barbell-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
     Nutrition: <Ionicons name="nutrition-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
     Progress: <Ionicons name="bar-chart" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
+    Settings: <Ionicons name="person-outline" size={24} color={focused ? COLORS.accent_primary : COLORS.text_tertiary} />,
   };
   return (
     <View style={styles.tabIcon}>
@@ -73,6 +75,13 @@ export default function TabLayout() {
         options={{
           title: 'Progress',
           tabBarIcon: ({ focused }) => <TabIcon label="Progress" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen 
+        name="settings"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ focused, color }) => <TabIcon label="Settings" focused={focused}/>,
         }}
       />
     </Tabs>

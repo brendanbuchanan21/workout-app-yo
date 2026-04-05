@@ -26,6 +26,25 @@ interface ActivityDay {
   labels: string[];
 }
 
+interface VolumeData {
+  sets: number;
+  tonnageKg: number;
+}
+
+interface ExerciseComparison {
+  exerciseName: string;
+  catalogId: string | null;
+  muscleGroup: string;
+  current: VolumeData | null;
+  previous: VolumeData | null;
+}
+
+interface MuscleGroupComparison {
+  muscle: string;
+  current: VolumeData | null;
+  previous: VolumeData | null;
+}
+
 type TabKey = 'prs' | 'strength' | 'volume' | 'activity' | 'weight';
 
 export default function Progress() {
@@ -60,6 +79,20 @@ export default function Progress() {
     },
   });
 
+  const exerciseVolumeQuery = useQuery({
+    queryKey: ['training', 'exercise-volume-comparison'],
+    queryFn: async () => {
+      const res = await apiGet('/training/exercise-volume-comparison');
+      if (!res.ok) return { currentWeek: 1, exercises: [], muscleGroups: [] };
+      const data = await res.json();
+      return {
+        currentWeek: data.currentWeek as number,
+        exercises: (data.exercises || []) as ExerciseComparison[],
+        muscleGroups: (data.muscleGroups || []) as MuscleGroupComparison[],
+      };
+    },
+  });
+
   const activityQuery = useQuery({
     queryKey: ['training', 'activity'],
     queryFn: async () => {
@@ -73,16 +106,19 @@ export default function Progress() {
   useRefreshOnFocus(() => {
     weightQuery.refetch();
     volumeSummaryQuery.refetch();
+    exerciseVolumeQuery.refetch();
     activityQuery.refetch();
   });
 
   const loading = weightQuery.isLoading
-    || volumeSummaryQuery.isLoading || activityQuery.isLoading;
+    || volumeSummaryQuery.isLoading || exerciseVolumeQuery.isLoading || activityQuery.isLoading;
 
   const entries = weightQuery.data ?? [];
   const currentVolume = volumeSummaryQuery.data?.completed ?? {};
   const volumeTargets = volumeSummaryQuery.data?.targets ?? {};
   const activity = activityQuery.data ?? {};
+  const exerciseVolume = exerciseVolumeQuery.data ?? { currentWeek: 1, exercises: [], muscleGroups: [] };
+
   const handleLogWeight = async () => {
     const w = parseFloat(newWeight);
     if (isNaN(w) || w <= 0) {
@@ -142,7 +178,13 @@ export default function Progress() {
                 }
               />
             )}
-        {tab === 'volume' && <VolumeTab currentVolume={currentVolume} volumeTargets={volumeTargets} />}
+        {tab === 'volume' && (
+          <VolumeTab
+            currentVolume={currentVolume}
+            volumeTargets={volumeTargets}
+            exerciseComparison={exerciseVolume}
+          />
+        )}
         {tab === 'activity' && <ActivityTab activity={activity} />}
         {tab === 'weight' && <WeightTab entries={entries} newWeight={newWeight} setNewWeight={setNewWeight} handleLogWeight={handleLogWeight} />}
       </ScrollView>

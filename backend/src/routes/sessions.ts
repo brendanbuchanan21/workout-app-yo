@@ -314,6 +314,19 @@ router.get('/program/days', requireAuth, async (req: AuthRequest, res: Response)
 
     const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, block.customDays as any);
 
+    // Get completed sessions for the current week
+    const completedThisWeek = await prisma.workoutSession.findMany({
+      where: {
+        trainingBlockId: block.id,
+        weekNumber: block.currentWeek,
+        status: 'completed',
+      },
+      select: { dayLabel: true, completedAt: true },
+    });
+    const completionMap = new Map(
+      completedThisWeek.map((s) => [s.dayLabel, s.completedAt])
+    );
+
     // For each day label, find the most recent session to get exercise definitions
     const days = await Promise.all(
       dayLabels.map(async (dl, i) => {
@@ -331,6 +344,8 @@ router.get('/program/days', requireAuth, async (req: AuthRequest, res: Response)
         return {
           dayLabel: dl,
           muscleGroups: getMuscleGroupsForDay(block.splitType, i, block.customDays as any),
+          completedThisWeek: completionMap.has(dl),
+          completedAt: completionMap.get(dl) ?? null,
           exercises: session?.exercises.map((e) => ({
             id: e.id,
             catalogId: e.catalogId,
@@ -344,7 +359,7 @@ router.get('/program/days', requireAuth, async (req: AuthRequest, res: Response)
       })
     );
 
-    res.json({ days });
+    res.json({ days, currentWeek: block.currentWeek });
   } catch (error) {
     console.error('Get program days error:', error);
     res.status(500).json({ error: 'Internal server error' });

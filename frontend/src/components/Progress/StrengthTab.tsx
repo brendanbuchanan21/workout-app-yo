@@ -9,6 +9,8 @@ import { ALL_MUSCLE_GROUPS, EQUIPMENT_ORDER, EQUIPMENT_LABELS } from '../../cons
 import { EnrichedExerciseHistory } from '../../types/training';
 import PRSearchBar from './PRSearchBar';
 import MuscleGroupPills from './MuscleGroupPills';
+import EquipmentIcon from '../EquipmentIcon';
+import MuscleGroupIcon from '../MuscleGroupIcon';
 
 function formatWeight(kg: number): string {
   return `${Math.round(kg * 2.20462)} lbs`;
@@ -119,6 +121,9 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail }: {
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
+        <View style={styles.muscleIcon}>
+          <MuscleGroupIcon muscle={ex.primaryMuscle} size={32} />
+        </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardName}>{ex.exerciseName}</Text>
           <Text style={styles.cardMeta}>
@@ -221,9 +226,15 @@ function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDet
       </Text>
       {sortedEquipment.map((eq) => (
         <View key={eq} style={styles.equipmentSection}>
-          <Text style={styles.equipmentTitle}>
-            {EQUIPMENT_LABELS[eq] || eq}
-          </Text>
+          <View style={styles.equipmentHeader}>
+            <View style={styles.equipmentIconWrap}>
+              <EquipmentIcon equipment={eq} size={16} color={COLORS.accent_primary} />
+            </View>
+            <Text style={styles.equipmentTitle}>
+              {EQUIPMENT_LABELS[eq] || eq}
+            </Text>
+            <View style={styles.equipmentLine} />
+          </View>
           <ExerciseList
             exercises={byEquipment[eq]}
             expandedExercise={expandedExercise}
@@ -370,15 +381,34 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   equipmentSection: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+  },
+  equipmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  equipmentIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.accent_subtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   equipmentTitle: {
-    color: COLORS.text_tertiary,
-    fontSize: 12,
+    color: COLORS.text_secondary,
+    fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: SPACING.sm,
+    marginRight: SPACING.md,
+  },
+  equipmentLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border_subtle,
   },
   card: {
     backgroundColor: COLORS.bg_elevated,
@@ -390,8 +420,14 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  muscleIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
   },
   cardInfo: {
     flex: 1,

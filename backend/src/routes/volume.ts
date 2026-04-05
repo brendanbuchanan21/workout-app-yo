@@ -279,4 +279,178 @@ router.get('/volume-history', requireAuth, async (req: AuthRequest, res: Respons
   }
 });
 
+// Per-exercise volume comparison: current week vs previous week
+router.get('/exercise-volume-comparison', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    const currentWeek = block.currentWeek;
+    const previousWeek = currentWeek - 1;
+
+    // Fetch completed sessions for current and previous week
+    const sessions = await prisma.workoutSession.findMany({
+      where: {
+        trainingBlockId: block.id,
+        weekNumber: { in: previousWeek >= 1 ? [currentWeek, previousWeek] : [currentWeek] },
+        completedAt: { not: null },
+      },
+      include: {
+        exercises: {
+          include: { sets: true },
+        },
+      },
+    });
+
+    interface ExerciseVolume {
+      sets: number;
+      tonnageKg: number;
+    }
+
+    // Aggregate per exercise per week
+    const exerciseByWeek: Record<string, Record<number, ExerciseVolume & {
+      exerciseName: string; catalogId: string | null; muscleGroup: string;
+    }>> = {};
+
+    for (const session of sessions) {
+      for (const exercise of session.exercises) {
+        const key = exercise.catalogId || exercise.exerciseName;
+        if (!exerciseByWeek[key]) exerciseByWeek[key] = {};
+
+        const completedSets = exercise.sets.filter((s) => s.completed);
+        const sets = completedSets.length;
+        const tonnageKg = completedSets.reduce((sum, s) => {
+          return sum + (s.actualWeightKg || 0) * (s.actualReps || 0);
+        }, 0);
+
+        const existing = exerciseByWeek[key][session.weekNumber];
+        if (existing) {
+          existing.sets += sets;
+          existing.tonnageKg += tonnageKg;
+        } else {
+          exerciseByWeek[key][session.weekNumber] = {
+            exerciseName: exercise.exerciseName,
+            catalogId: exercise.catalogId,
+            muscleGroup: exercise.muscleGroup,
+            sets,
+            tonnageKg: Math.round(tonnageKg * 100) / 100,
+          };
+        }
+      }
+    }
+
+    // Build per-exercise comparison
+    const exercises = Object.values(exerciseByWeek).map((weekData) => {
+      const curr = weekData[currentWeek];
+      const prev = weekData[previousWeek];
+      const ref = curr || prev!;
+      return {
+        exerciseName: ref.exerciseName,
+        catalogId: ref.catalogId,
+        muscleGroup: ref.muscleGroup,
+        current: curr ? { sets: curr.sets, tonnageKg: Math.round(curr.tonnageKg * 100) / 100 } : null,
+        previous: prev ? { sets: prev.sets, tonnageKg: Math.round(prev.tonnageKg * 100) / 100 } : null,
+      };
+    }).sort((a, b) => a.exerciseName.localeCompare(b.exerciseName));
+
+    // Build per-muscle-group rollup
+    const muscleByWeek: Record<string, Record<number, ExerciseVolume>> = {};
+    for (const ex of Object.values(exerciseByWeek)) {
+      for (const [weekStr, data] of Object.entries(ex)) {
+        const week = Number(weekStr);
+        const muscle = data.muscleGroup;
+        if (!muscleByWeek[muscle]) muscleByWeek[muscle] = {};
+        const existing = muscleByWeek[muscle][week];
+        if (existing) {
+          existing.sets += data.sets;
+          existing.tonnageKg += data.tonnageKg;
+        } else {
+          muscleByWeek[muscle][week] = { sets: data.sets, tonnageKg: data.tonnageKg };
+        }
+      }
+    }
+
+    const muscleGroups = Object.entries(muscleByWeek).map(([muscle, weekData]) => {
+      const curr = weekData[currentWeek];
+      const prev = weekData[previousWeek];
+      return {
+        muscle,
+        current: curr ? { sets: curr.sets, tonnageKg: Math.round(curr.tonnageKg * 100) / 100 } : null,
+        previous: prev ? { sets: prev.sets, tonnageKg: Math.round(prev.tonnageKg * 100) / 100 } : null,
+      };
+    }).sort((a, b) => a.muscle.localeCompare(b.muscle));
+
+    res.json({ currentWeek, exercises, muscleGroups });
+  } catch (error) {
+    console.error('Get exercise volume comparison error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Per-muscle weekly volume for the active training block
+router.get('/block-weekly-volume', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: { trainingBlockId: block.id },
+      include: {
+        exercises: {
+          include: { sets: true },
+        },
+      },
+    });
+
+    const volumeTargets = (block.volumeTargets as Record<string, number>) || {};
+
+    // Initialize data: { muscle: [null, null, ...] } length = lengthWeeks
+    const data: Record<string, (number | null)[]> = {};
+    for (const muscle of Object.keys(volumeTargets)) {
+      data[muscle] = Array(block.lengthWeeks).fill(null);
+    }
+
+    // Tally completed sets per muscle per week
+    for (const session of sessions) {
+      const weekIdx = session.weekNumber - 1;
+      if (weekIdx < 0 || weekIdx >= block.lengthWeeks) continue;
+
+      for (const exercise of session.exercises) {
+        const muscle = exercise.muscleGroup;
+        const completedSets = exercise.sets.filter(
+          (s) => s.completed && s.setType === 'working'
+        ).length;
+        if (completedSets === 0) continue;
+
+        if (!data[muscle]) {
+          data[muscle] = Array(block.lengthWeeks).fill(null);
+        }
+        data[muscle][weekIdx] = (data[muscle][weekIdx] || 0) + completedSets;
+      }
+    }
+
+    res.json({
+      lengthWeeks: block.lengthWeeks,
+      currentWeek: block.currentWeek,
+      volumeTargets,
+      data,
+    });
+  } catch (error) {
+    console.error('Get block weekly volume error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

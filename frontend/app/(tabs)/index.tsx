@@ -182,12 +182,6 @@ export default function Dashboard() {
             <Text style={styles.quickActionLabel}>View PRs</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Profile & Settings */}
-        <TouchableOpacity style={styles.settingsCard} onPress={() => router.push('/settings')}>
-          <Text style={styles.settingsLabel}>Profile & Settings</Text>
-          <Text style={styles.settingsChevron}>&#x203A;</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

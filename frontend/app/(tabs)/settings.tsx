@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useAuth } from '../src/context/AuthContext';
-import { apiGet, apiPut } from '../src/utils/api';
-import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
+import { useAuth } from '../../src/context/AuthContext';
+import { apiGet, apiPut } from '../../src/utils/api';
+import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 
 interface UserProfile {
   id: string;
@@ -138,7 +138,7 @@ export default function Settings() {
     });
   };
 
-  const capitalize = (s: string | null): string => {
+  const capitalize = (s: string | null | undefined): string => {
     if (!s) return 'Not set';
     return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
   };

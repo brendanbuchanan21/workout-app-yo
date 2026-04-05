@@ -9,10 +9,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { apiGet, apiPut } from '../src/utils/api';
 import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
 import { SPLIT_LABELS, MUSCLE_LABELS } from '../src/constants/training';
+import WeekTimeline from '../src/components/MyProgram/WeekTimeline';
+import WeeklyVolumeBreakdown from '../src/components/MyProgram/WeeklyVolumeBreakdown';
+import PastWorkoutsList, { PastWorkout } from '../src/components/MyProgram/PastWorkoutsList';
+import { Ionicons } from '@expo/vector-icons';
 
 interface ProgramDay {
   dayLabel: string;
   muscleGroups: string[];
+  completedThisWeek: boolean;
+  completedAt: string | null;
   exercises: { catalogId: string | null; exerciseName: string; muscleGroup: string; sets: number }[];
 }
 
@@ -25,22 +31,35 @@ interface TrainingBlock {
   setupMethod: string | null;
 }
 
+interface WeeklyVolumeData {
+  lengthWeeks: number;
+  currentWeek: number;
+  volumeTargets: Record<string, number>;
+  data: Record<string, (number | null)[]>;
+}
+
 export default function MyProgram() {
   const router = useRouter();
   const [block, setBlock] = useState<TrainingBlock | null>(null);
   const [days, setDays] = useState<ProgramDay[]>([]);
+  const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [weeklyVolume, setWeeklyVolume] = useState<WeeklyVolumeData | null>(null);
+  const [pastWorkouts, setPastWorkouts] = useState<PastWorkout[]>([]);
   const [loading, setLoading] = useState(true);
   const [reordering, setReordering] = useState(false);
   const [orderDirty, setOrderDirty] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       const load = async () => {
         try {
-          const [blockRes, daysRes] = await Promise.all([
+          const [blockRes, daysRes, volumeRes, sessionsRes] = await Promise.all([
             apiGet('/training/block/active'),
             apiGet('/training/program/days'),
+            apiGet('/training/block-weekly-volume'),
+            apiGet('/training/block/sessions'),
           ]);
           if (blockRes.ok) {
             const data = await blockRes.json();
@@ -49,6 +68,15 @@ export default function MyProgram() {
           if (daysRes.ok) {
             const data = await daysRes.json();
             setDays(data.days);
+            if (data.currentWeek) setCurrentWeek(data.currentWeek);
+          }
+          if (volumeRes.ok) {
+            const data = await volumeRes.json();
+            setWeeklyVolume(data);
+          }
+          if (sessionsRes.ok) {
+            const data = await sessionsRes.json();
+            setPastWorkouts(data.sessions);
           }
         } catch (err) {
           console.error('Failed to load program:', err);
@@ -120,13 +148,21 @@ export default function MyProgram() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <View pointerEvents="none" style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle}>My Program</Text>
+        </View>
+
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Program</Text>
-        <TouchableOpacity onPress={() => reordering ? setReordering(false) : setReordering(true)}>
-          <Text style={styles.backText}>{reordering ? 'Done' : 'Reorder'}</Text>
-        </TouchableOpacity>
+
+        <View style={{ flex: 1 }} />
+
+        {showWeeklySchedule ? (
+          <TouchableOpacity onPress={() => setReordering((v) => !v)}>
+            <Text style={styles.backText}>{reordering ? 'Done' : 'Reorder'}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -154,63 +190,113 @@ export default function MyProgram() {
           </View>
         </View>
 
+        {/* Week progress timeline */}
+        <Text style={styles.sectionTitle}>Week {currentWeek} Progress</Text>
+        <View style={styles.timelineCard}>
+          <WeekTimeline
+            days={days.map((d) => ({
+              dayLabel: d.dayLabel,
+              completed: d.completedThisWeek,
+            }))}
+          />
+        </View>
+
+        {/* Volume progress across program weeks */}
+        {weeklyVolume && (
+          <WeeklyVolumeBreakdown
+            lengthWeeks={weeklyVolume.lengthWeeks}
+            currentWeek={weeklyVolume.currentWeek}
+            volumeTargets={weeklyVolume.volumeTargets}
+            data={weeklyVolume.data}
+          />
+        )}
+
+        {/* Past workouts */}
+        <Text style={styles.sectionTitle}>Past Workouts</Text>
+        <PastWorkoutsList workouts={pastWorkouts} />
+
         {/* Weekly schedule */}
-        <Text style={styles.sectionTitle}>Weekly Schedule</Text>
-        {reordering && orderDirty && (
+        {showWeeklySchedule ? (
+          <>   
+              <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Text style={styles.sectionTitle}>Weekly Schedule</Text>
+                <Ionicons name='chevron-down' color={COLORS.text_secondary} size={20} onPress={() => setShowWeeklySchedule(false)}/>
+              </View>
+            {reordering && orderDirty && (
+              <TouchableOpacity
+                style={styles.saveOrderButton}
+                onPress={saveDayOrder}
+                disabled={savingOrder}
+              >
+                <Text style={styles.saveOrderText}>{savingOrder ? 'Saving...' : 'Save Order'}</Text>
+              </TouchableOpacity>
+            )}
+            {days.length > 0 ? (
+              days.map((day, i) => (
+                <TouchableOpacity
+                  key={day.dayLabel}
+                  style={[styles.dayCard, day.completedThisWeek && styles.dayCardCompleted]}
+                  onPress={reordering ? undefined : () => router.push({ pathname: '/edit-day', params: { dayLabel: day.dayLabel } })}
+                  activeOpacity={reordering ? 1 : 0.7}
+                >
+                  <View style={styles.dayCardHeader}>
+                    {reordering && (
+                      <View style={styles.reorderControls}>
+                        <TouchableOpacity onPress={() => moveDay(i, 'up')} disabled={i === 0}>
+                          <Text style={[styles.reorderArrow, i === 0 && styles.reorderDisabled]}>▲</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => moveDay(i, 'down')} disabled={i === days.length - 1}>
+                          <Text style={[styles.reorderArrow, i === days.length - 1 && styles.reorderDisabled]}>▼</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dayCardTitle}>{day.dayLabel}</Text>
+                      <Text style={styles.dayCardMuscles}>
+                        {day.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
+                      </Text>
+                    </View>
+                    {!reordering && <Text style={styles.editArrow}>›</Text>}
+                  </View>
+                  {!reordering && day.exercises.length > 0 && (
+                    <View style={styles.exerciseList}>
+                      {day.exercises.map((ex, j) => (
+                        <View key={j} style={styles.exerciseRow}>
+                          <Text style={styles.exerciseName}>{ex.exerciseName}</Text>
+                          <Text style={styles.exerciseSets}>{ex.sets} sets</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>
+                {block.setupMethod === 'build_as_you_go'
+                  ? 'Exercises are chosen each session'
+                  : 'No schedule data available'}
+              </Text>
+            )}
+          </>
+        ) : (
           <TouchableOpacity
-            style={styles.saveOrderButton}
-            onPress={saveDayOrder}
-            disabled={savingOrder}
+          style={styles.settingsButton} 
+          onPress={() => setShowWeeklySchedule(true)}
           >
-            <Text style={styles.saveOrderText}>{savingOrder ? 'Saving...' : 'Save Order'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <Text style={styles.settingsButtonText}>
+              View Weekly Plan
+            </Text>
+            <Ionicons name='chevron-forward' size={20} color={COLORS.accent_primary}/>
+            </View>
           </TouchableOpacity>
         )}
-        {days.length > 0 ? (
-          days.map((day, i) => (
-            <TouchableOpacity
-              key={day.dayLabel}
-              style={styles.dayCard}
-              onPress={reordering ? undefined : () => router.push({ pathname: '/edit-day', params: { dayLabel: day.dayLabel } })}
-              activeOpacity={reordering ? 1 : 0.7}
-            >
-              <View style={styles.dayCardHeader}>
-                {reordering && (
-                  <View style={styles.reorderControls}>
-                    <TouchableOpacity onPress={() => moveDay(i, 'up')} disabled={i === 0}>
-                      <Text style={[styles.reorderArrow, i === 0 && styles.reorderDisabled]}>▲</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => moveDay(i, 'down')} disabled={i === days.length - 1}>
-                      <Text style={[styles.reorderArrow, i === days.length - 1 && styles.reorderDisabled]}>▼</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.dayCardTitle}>{day.dayLabel}</Text>
-                  <Text style={styles.dayCardMuscles}>
-                    {day.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
-                  </Text>
-                </View>
-                {!reordering && <Text style={styles.editArrow}>›</Text>}
-              </View>
-              {!reordering && day.exercises.length > 0 && (
-                <View style={styles.exerciseList}>
-                  {day.exercises.map((ex, j) => (
-                    <View key={j} style={styles.exerciseRow}>
-                      <Text style={styles.exerciseName}>{ex.exerciseName}</Text>
-                      <Text style={styles.exerciseSets}>{ex.sets} sets</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>
-            {block.setupMethod === 'build_as_you_go'
-              ? 'Exercises are chosen each session'
-              : 'No schedule data available'}
-          </Text>
-        )}
+
 
         {/* Plan Settings link */}
         <TouchableOpacity
@@ -232,9 +318,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
+  },
+  headerTitleWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backText: {
     color: COLORS.accent_primary,
@@ -245,6 +335,7 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
     fontSize: 17,
     fontWeight: '700',
+    textAlign: 'center',
   },
   scroll: {
     padding: SPACING.xl,
@@ -285,6 +376,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: SPACING.md,
   },
+  timelineCard: {
+    backgroundColor: COLORS.bg_secondary,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.xl,
+  },
   dayCard: {
     backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.md,
@@ -292,6 +392,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
     marginBottom: SPACING.sm,
+  },
+  dayCardCompleted: {
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.success,
   },
   dayCardHeader: {
     flexDirection: 'row',

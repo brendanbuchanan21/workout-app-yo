@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -8,6 +8,7 @@ import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import TimeRangePicker from '../shared/TimeRangePicker';
 import VolumeChart from './VolumeChart';
 import VolumeThenVsNow from './VolumeThenVsNow';
+import ExerciseVolumeComparison from './ExerciseVolumeComparison';
 
 type VolumeRange = '1m' | '3m' | '6m' | '1y';
 
@@ -16,9 +17,33 @@ interface VolumeWeek {
   muscles: Record<string, number>;
 }
 
+interface VolumeData {
+  sets: number;
+  tonnageKg: number;
+}
+
+interface ExerciseComparison {
+  exerciseName: string;
+  catalogId: string | null;
+  muscleGroup: string;
+  current: VolumeData | null;
+  previous: VolumeData | null;
+}
+
+interface MuscleGroupComparison {
+  muscle: string;
+  current: VolumeData | null;
+  previous: VolumeData | null;
+}
+
 interface VolumeTabProps {
   currentVolume: Record<string, number>;
   volumeTargets: Record<string, number>;
+  exerciseComparison?: {
+    currentWeek: number;
+    exercises: ExerciseComparison[];
+    muscleGroups: MuscleGroupComparison[];
+  };
 }
 
 const RANGE_OPTIONS: { value: VolumeRange; label: string }[] = [
@@ -36,8 +61,9 @@ function formatMuscle(muscle: string): string {
   return muscle.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function VolumeTab({ currentVolume, volumeTargets }: VolumeTabProps) {
+export default function VolumeTab({ currentVolume, volumeTargets, exerciseComparison }: VolumeTabProps) {
   const [range, setRange] = useState<VolumeRange>('3m');
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
 
   const volumeHistoryQuery = useQuery({
     queryKey: ['training', 'volume-history', range],
@@ -117,6 +143,18 @@ export default function VolumeTab({ currentVolume, volumeTargets }: VolumeTabPro
         </View>
       )}
 
+      {exerciseComparison && exerciseComparison.exercises.length > 0 && (
+        <>
+          <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Week {exerciseComparison.currentWeek} vs Previous</Text>
+          <Text style={styles.chartSubtitle}>Per-exercise sets and tonnage</Text>
+          <ExerciseVolumeComparison
+            exercises={exerciseComparison.exercises}
+            muscleGroups={exerciseComparison.muscleGroups}
+            currentWeek={exerciseComparison.currentWeek}
+          />
+        </>
+      )}
+
       {volumeHistoryQuery.isLoading ? (
         <ActivityIndicator
           size="small"
@@ -138,15 +176,27 @@ export default function VolumeTab({ currentVolume, volumeTargets }: VolumeTabPro
             <>
               <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Volume Over Time</Text>
               <Text style={styles.chartSubtitle}>Weekly sets per muscle group</Text>
-              <VolumeChart volumeWeeks={volumeWeeks} muscles={sortedChartMuscles} />
+              <VolumeChart
+                volumeWeeks={volumeWeeks}
+                muscles={sortedChartMuscles}
+                selectedMuscle={selectedMuscle}
+              />
 
               <View style={styles.legendContainer}>
-                {sortedChartMuscles.map((muscle) => (
-                  <View key={muscle} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: getMuscleColor(muscle) }]} />
-                    <Text style={styles.legendText}>{formatMuscle(muscle)}</Text>
-                  </View>
-                ))}
+                {sortedChartMuscles.map((muscle) => {
+                  const isActive = !selectedMuscle || muscle === selectedMuscle;
+                  return (
+                    <TouchableOpacity
+                      key={muscle}
+                      style={[styles.legendItem, selectedMuscle === muscle && styles.legendItemActive]}
+                      onPress={() => setSelectedMuscle(selectedMuscle === muscle ? null : muscle)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.legendDot, { backgroundColor: getMuscleColor(muscle), opacity: isActive ? 1 : 0.3 }]} />
+                      <Text style={[styles.legendText, { opacity: isActive ? 1 : 0.3 }]}>{formatMuscle(muscle)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </>
           )}
@@ -257,6 +307,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  legendItemActive: {
+    backgroundColor: COLORS.bg_input,
   },
   legendDot: {
     width: 8,

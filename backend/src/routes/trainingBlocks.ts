@@ -275,4 +275,65 @@ router.get('/block/active', requireAuth, async (req: AuthRequest, res: Response)
   }
 });
 
+// Completed sessions in the active training block (newest first)
+router.get('/block/sessions', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const block = await prisma.trainingBlock.findFirst({
+      where: { userId: req.userId!, status: 'active' },
+    });
+
+    if (!block) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: {
+        trainingBlockId: block.id,
+        status: 'completed',
+      },
+      include: {
+        exercises: {
+          include: { sets: true },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { completedAt: 'desc' }],
+    });
+
+    const summaries = sessions.map((session) => {
+      let totalSets = 0;
+      let totalTonnageKg = 0;
+      const muscleSet = new Set<string>();
+
+      for (const exercise of session.exercises) {
+        muscleSet.add(exercise.muscleGroup);
+        for (const set of exercise.sets) {
+          if (!set.completed || set.setType !== 'working') continue;
+          totalSets += 1;
+          const reps = set.actualReps ?? 0;
+          const weight = Number(set.actualWeightKg ?? 0);
+          totalTonnageKg += reps * weight;
+        }
+      }
+
+      return {
+        id: session.id,
+        date: session.date,
+        completedAt: session.completedAt,
+        weekNumber: session.weekNumber,
+        dayLabel: session.dayLabel,
+        muscleGroups: Array.from(muscleSet),
+        exerciseCount: session.exercises.length,
+        totalSets,
+        totalTonnageKg: Math.round(totalTonnageKg),
+      };
+    });
+
+    res.json({ sessions: summaries });
+  } catch (error) {
+    console.error('Get block sessions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

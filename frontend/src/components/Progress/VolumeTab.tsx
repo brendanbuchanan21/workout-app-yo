@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 
 import { useQuery } from '@tanstack/react-query';
 
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
-import TimeRangePicker from '../shared/TimeRangePicker';
 import VolumeChart from './VolumeChart';
 import VolumeThenVsNow from './VolumeThenVsNow';
 import ExerciseVolumeComparison from './ExerciseVolumeComparison';
@@ -36,9 +35,12 @@ interface MuscleGroupComparison {
   previous: VolumeData | null;
 }
 
+interface Guardrail {
+  floor: number;
+  ceiling: number;
+}
+
 interface VolumeTabProps {
-  currentVolume: Record<string, number>;
-  volumeTargets: Record<string, number>;
   exerciseComparison?: {
     currentWeek: number;
     exercises: ExerciseComparison[];
@@ -61,7 +63,7 @@ function formatMuscle(muscle: string): string {
   return muscle.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function VolumeTab({ currentVolume, volumeTargets, exerciseComparison }: VolumeTabProps) {
+export default function VolumeTab({ exerciseComparison }: VolumeTabProps) {
   const [range, setRange] = useState<VolumeRange>('3m');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
 
@@ -75,72 +77,141 @@ export default function VolumeTab({ currentVolume, volumeTargets, exerciseCompar
     },
   });
 
-  const volumeWeeks = volumeHistoryQuery.data ?? [];
+  const guardrailsQuery = useQuery({
+    queryKey: ['training', 'volume-guardrails'],
+    queryFn: async () => {
+      const res = await apiGet('/training/volume-guardrails');
+      if (!res.ok) return {} as Record<string, Guardrail>;
+      const data = await res.json();
+      return (data.guardrails || {}) as Record<string, Guardrail>;
+    },
+  });
 
-  const allMuscles = Array.from(new Set([
-    ...Object.keys(currentVolume),
-    ...Object.keys(volumeTargets),
-  ])).sort();
+  const allWeeks = volumeHistoryQuery.data ?? [];
+  const guardrails = guardrailsQuery.data ?? {};
 
-  const chartMuscles = new Set<string>();
-  for (const week of volumeWeeks) {
-    for (const muscle of Object.keys(week.muscles)) {
-      chartMuscles.add(muscle);
+  // The backend returns 2x the requested range (to power VolumeThenVsNow).
+  // Trim to the actual selected range for the chart + summary stats.
+  const chartWeeks = (() => {
+    const months = RANGE_MONTHS[range];
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    return allWeeks.filter((w) => new Date(w.weekStart + 'T00:00:00') >= cutoff);
+  })();
+
+  // Union of muscles appearing in chart weeks + guardrails
+  const availableMuscles = (() => {
+    const set = new Set<string>();
+    for (const week of chartWeeks) {
+      for (const muscle of Object.keys(week.muscles)) set.add(muscle);
     }
-  }
-  const sortedChartMuscles = Array.from(chartMuscles).sort();
+    for (const muscle of Object.keys(guardrails)) set.add(muscle);
+    return Array.from(set).sort();
+  })();
+
+  // Auto-pick a default muscle once data loads
+  useEffect(() => {
+    if (!selectedMuscle && availableMuscles.length > 0) {
+      const preferred = availableMuscles.includes('chest') ? 'chest' : availableMuscles[0];
+      setSelectedMuscle(preferred);
+    }
+  }, [availableMuscles, selectedMuscle]);
+
+  const isLoading = volumeHistoryQuery.isLoading || guardrailsQuery.isLoading;
+
+  // Summary stats for the selected muscle
+  const selectedValues = selectedMuscle
+    ? chartWeeks.map((w) => w.muscles[selectedMuscle] || 0)
+    : [];
+  const nonZeroCount = selectedValues.filter((v) => v > 0).length;
+  const sum = selectedValues.reduce((a, b) => a + b, 0);
+  const avg = nonZeroCount > 0 ? Math.round(sum / nonZeroCount) : 0;
+  const peak = selectedValues.reduce((m, v) => (v > m ? v : m), 0);
+  const current = selectedValues.length > 0 ? selectedValues[selectedValues.length - 1] : 0;
+  const selectedGuardrail = selectedMuscle ? guardrails[selectedMuscle] : undefined;
 
   return (
     <>
-      <TimeRangePicker
-        selected={range}
-        onSelect={setRange}
-        options={RANGE_OPTIONS}
-      />
-
-      <Text style={styles.sectionTitle}>This Week</Text>
-      {allMuscles.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No Volume Data</Text>
-          <Text style={styles.emptyText}>Complete workouts to see your weekly volume.</Text>
-        </View>
-      ) : (
-        <View style={styles.volumeCard}>
-          {allMuscles.map((muscle) => {
-            const completed = currentVolume[muscle] || 0;
-            const target = volumeTargets[muscle] || 0;
-            const maxVal = Math.max(completed, target, 1);
-            const pct = Math.min(completed / maxVal, 1);
-
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>Volume Trend</Text>
+        <View style={styles.rangeRow}>
+          {RANGE_OPTIONS.map(({ value, label }) => {
+            const active = value === range;
             return (
-              <View key={muscle} style={styles.volumeRow}>
-                <Text style={styles.volumeLabel}>{formatMuscle(muscle)}</Text>
-                <View style={styles.volumeBarContainer}>
-                  <View
-                    style={[
-                      styles.volumeBar,
-                      {
-                        width: `${pct * 100}%`,
-                        backgroundColor: COLORS.success,
-                      },
-                    ]}
-                  />
-                  {target > 0 && (
-                    <View
-                      style={[
-                        styles.volumeTargetLine,
-                        { left: `${Math.min((target / maxVal) * 100, 100)}%` },
-                      ]}
-                    />
-                  )}
-                </View>
-                <Text style={styles.volumeCount}>
-                  {completed}{target > 0 ? `/${target}` : ''}
+              <TouchableOpacity
+                key={value}
+                onPress={() => setRange(value)}
+                activeOpacity={0.7}
+                hitSlop={8}
+              >
+                <Text style={[styles.rangeText, active && styles.rangeTextActive]}>
+                  {label}
                 </Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
+      </View>
+
+      {isLoading ? (
+        <ActivityIndicator
+          size="small"
+          color={COLORS.accent_primary}
+          style={{ marginTop: SPACING.xxl }}
+        />
+      ) : availableMuscles.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No Volume Data</Text>
+          <Text style={styles.emptyText}>Complete workouts to see your volume trends.</Text>
+        </View>
+      ) : (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {availableMuscles.map((muscle) => {
+              const active = muscle === selectedMuscle;
+              return (
+                <TouchableOpacity
+                  key={muscle}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setSelectedMuscle(muscle)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {formatMuscle(muscle)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {selectedMuscle && (
+            <>
+              <VolumeChart
+                volumeWeeks={chartWeeks}
+                selectedMuscle={selectedMuscle}
+                guardrail={selectedGuardrail}
+              />
+
+              <View style={styles.summaryBlock}>
+                <Text style={styles.summaryTitle}>
+                  {formatMuscle(selectedMuscle)} , {range.toUpperCase()}
+                </Text>
+                <Text style={styles.summaryStats}>
+                  Avg {avg} sets/wk , Peak {peak} , Current {current}
+                </Text>
+                {selectedGuardrail && (
+                  <Text style={styles.summaryRange}>
+                    Target range {selectedGuardrail.floor} to {selectedGuardrail.ceiling} sets
+                  </Text>
+                )}
+              </View>
+            </>
+          )}
+        </>
       )}
 
       {exerciseComparison && exerciseComparison.exercises.length > 0 && (
@@ -155,74 +226,16 @@ export default function VolumeTab({ currentVolume, volumeTargets, exerciseCompar
         </>
       )}
 
-      {volumeHistoryQuery.isLoading ? (
-        <ActivityIndicator
-          size="small"
-          color={COLORS.accent_primary}
-          style={{ marginTop: SPACING.xxl }}
-        />
-      ) : (
-        <>
-          {volumeWeeks.length > 0 && (
-            <View style={{ marginTop: SPACING.xxl }}>
-              <VolumeThenVsNow
-                volumeWeeks={volumeWeeks}
-                rangeMonths={RANGE_MONTHS[range]}
-              />
-            </View>
-          )}
-
-          {volumeWeeks.length > 1 && sortedChartMuscles.length > 0 && (
-            <>
-              <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Volume Over Time</Text>
-              <Text style={styles.chartSubtitle}>Weekly sets per muscle group</Text>
-              <VolumeChart
-                volumeWeeks={volumeWeeks}
-                muscles={sortedChartMuscles}
-                selectedMuscle={selectedMuscle}
-              />
-
-              <View style={styles.legendContainer}>
-                {sortedChartMuscles.map((muscle) => {
-                  const isActive = !selectedMuscle || muscle === selectedMuscle;
-                  return (
-                    <TouchableOpacity
-                      key={muscle}
-                      style={[styles.legendItem, selectedMuscle === muscle && styles.legendItemActive]}
-                      onPress={() => setSelectedMuscle(selectedMuscle === muscle ? null : muscle)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.legendDot, { backgroundColor: getMuscleColor(muscle), opacity: isActive ? 1 : 0.3 }]} />
-                      <Text style={[styles.legendText, { opacity: isActive ? 1 : 0.3 }]}>{formatMuscle(muscle)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-        </>
+      {allWeeks.length > 0 && (
+        <View style={{ marginTop: SPACING.xxl }}>
+          <VolumeThenVsNow
+            volumeWeeks={allWeeks}
+            rangeMonths={RANGE_MONTHS[range]}
+          />
+        </View>
       )}
     </>
   );
-}
-
-const MUSCLE_COLORS: Record<string, string> = {
-  chest: '#E8912D',
-  back: '#4ADE80',
-  quads: '#60A5FA',
-  hamstrings: '#A78BFA',
-  side_delts: '#F472B6',
-  rear_delts: '#FB923C',
-  biceps: '#34D399',
-  triceps: '#FBBF24',
-  glutes: '#C084FC',
-  calves: '#F87171',
-  traps: '#38BDF8',
-  abs: '#FB7185',
-};
-
-function getMuscleColor(muscle: string): string {
-  return MUSCLE_COLORS[muscle] || COLORS.accent_primary;
 }
 
 const styles = StyleSheet.create({
@@ -230,7 +243,25 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: SPACING.md,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  rangeText: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  rangeTextActive: {
+    color: COLORS.text_primary,
   },
   chartSubtitle: {
     color: COLORS.text_tertiary,
@@ -253,74 +284,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  volumeCard: {
+  chipRow: {
+    gap: SPACING.sm,
+    paddingBottom: SPACING.md,
+  },
+  chip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
-    padding: SPACING.lg,
   },
-  volumeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+  chipActive: {
+    backgroundColor: COLORS.bg_input,
+    borderColor: COLORS.accent_primary,
   },
-  volumeLabel: {
+  chipText: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: COLORS.text_primary,
+  },
+  summaryBlock: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xl,
+  },
+  summaryTitle: {
+    color: COLORS.text_primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  summaryStats: {
     color: COLORS.text_secondary,
     fontSize: 12,
-    width: 80,
   },
-  volumeBarContainer: {
-    flex: 1,
-    height: 16,
-    backgroundColor: COLORS.bg_input,
-    borderRadius: RADIUS.sm,
-    marginHorizontal: SPACING.sm,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  volumeBar: {
-    height: '100%',
-    borderRadius: RADIUS.sm,
-  },
-  volumeTargetLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: COLORS.text_primary,
-    opacity: 0.5,
-  },
-  volumeCount: {
+  summaryRange: {
     color: COLORS.text_tertiary,
     fontSize: 11,
-    width: 40,
-    textAlign: 'right',
-  },
-  legendContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.sm,
-  },
-  legendItemActive: {
-    backgroundColor: COLORS.bg_input,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    color: COLORS.text_tertiary,
-    fontSize: 10,
+    marginTop: 2,
   },
 });

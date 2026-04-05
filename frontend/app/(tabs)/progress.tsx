@@ -66,19 +66,6 @@ export default function Progress() {
     },
   });
 
-  const volumeSummaryQuery = useQuery({
-    queryKey: ['training', 'volume-summary'],
-    queryFn: async () => {
-      const res = await apiGet('/training/volume-summary');
-      if (!res.ok) return { completed: {}, targets: {} };
-      const data = await res.json();
-      return {
-        completed: (data.volumeCompleted || {}) as Record<string, number>,
-        targets: (data.volumeTargets || {}) as Record<string, number>,
-      };
-    },
-  });
-
   const exerciseVolumeQuery = useQuery({
     queryKey: ['training', 'exercise-volume-comparison'],
     queryFn: async () => {
@@ -105,17 +92,14 @@ export default function Progress() {
 
   useRefreshOnFocus(() => {
     weightQuery.refetch();
-    volumeSummaryQuery.refetch();
     exerciseVolumeQuery.refetch();
     activityQuery.refetch();
   });
 
   const loading = weightQuery.isLoading
-    || volumeSummaryQuery.isLoading || exerciseVolumeQuery.isLoading || activityQuery.isLoading;
+    || exerciseVolumeQuery.isLoading || activityQuery.isLoading;
 
   const entries = weightQuery.data ?? [];
-  const currentVolume = volumeSummaryQuery.data?.completed ?? {};
-  const volumeTargets = volumeSummaryQuery.data?.targets ?? {};
   const activity = activityQuery.data ?? {};
   const exerciseVolume = exerciseVolumeQuery.data ?? { currentWeek: 1, exercises: [], muscleGroups: [] };
 
@@ -179,11 +163,7 @@ export default function Progress() {
               />
             )}
         {tab === 'volume' && (
-          <VolumeTab
-            currentVolume={currentVolume}
-            volumeTargets={volumeTargets}
-            exerciseComparison={exerciseVolume}
-          />
+          <VolumeTab exerciseComparison={exerciseVolume} />
         )}
         {tab === 'activity' && <ActivityTab activity={activity} />}
         {tab === 'weight' && <WeightTab entries={entries} newWeight={newWeight} setNewWeight={setNewWeight} handleLogWeight={handleLogWeight} />}

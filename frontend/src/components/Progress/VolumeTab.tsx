@@ -46,6 +46,7 @@ interface VolumeTabProps {
     exercises: ExerciseComparison[];
     muscleGroups: MuscleGroupComparison[];
   };
+  initialMuscle?: string | null;
 }
 
 const RANGE_OPTIONS: { value: VolumeRange; label: string }[] = [
@@ -63,9 +64,15 @@ function formatMuscle(muscle: string): string {
   return muscle.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function VolumeTab({ exerciseComparison }: VolumeTabProps) {
+export default function VolumeTab({ exerciseComparison, initialMuscle }: VolumeTabProps) {
   const [range, setRange] = useState<VolumeRange>('3m');
-  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(initialMuscle ?? null);
+
+  // When the parent hands us a new preselected muscle (e.g. deeplink from
+  // the Insights tab), jump to it.
+  useEffect(() => {
+    if (initialMuscle) setSelectedMuscle(initialMuscle);
+  }, [initialMuscle]);
 
   const volumeHistoryQuery = useQuery({
     queryKey: ['training', 'volume-history', range],

@@ -72,9 +72,9 @@ export default function Dashboard() {
   });
 
   const prFeedQuery = useQuery({
-    queryKey: ['exercises', 'prs', 'feed'],
+    queryKey: ['training', 'prs', 'feed'],
     queryFn: async () => {
-      const res = await apiGet('/exercises/prs/feed');
+      const res = await apiGet('/training/prs/feed');
       if (!res.ok) return { prEvents: [] };
       return res.json();
     },

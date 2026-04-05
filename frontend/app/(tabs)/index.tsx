@@ -6,6 +6,8 @@ import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
+import RecentPRs from '../../src/components/Home/RecentPRs';
+import { PREvent } from '../../src/types/training';
 // NUTRITION_HIDDEN: MacroRing import removed
 
 interface TodayContext {
@@ -69,15 +71,26 @@ export default function Dashboard() {
     },
   });
 
+  const prFeedQuery = useQuery({
+    queryKey: ['exercises', 'prs', 'feed'],
+    queryFn: async () => {
+      const res = await apiGet('/exercises/prs/feed');
+      if (!res.ok) return { prEvents: [] };
+      return res.json();
+    },
+  });
+
   useRefreshOnFocus(() => {
     userQuery.refetch();
     blockQuery.refetch();
     todayQuery.refetch();
+    prFeedQuery.refetch();
   });
 
   const loading = userQuery.isLoading || blockQuery.isLoading || todayQuery.isLoading;
   const trainingBlock: ActiveTrainingBlock | null = blockQuery.data?.trainingBlock ?? null;
   const today: TodayContext | null = todayQuery.data ?? null;
+  const recentPRs: PREvent[] = prFeedQuery.data?.prEvents ?? [];
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -175,13 +188,8 @@ export default function Dashboard() {
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
         </TouchableOpacity>
 
-        {/* Quick actions */}
-        <View style={styles.quickActions}>
-          {/* NUTRITION_HIDDEN: removed Log Meal and Check-in, added View PRs */}
-          <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/(tabs)/progress')}>
-            <Text style={styles.quickActionLabel}>View PRs</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Recent PRs */}
+        <RecentPRs events={recentPRs} />
       </ScrollView>
     </SafeAreaView>
   );

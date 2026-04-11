@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const API_URL = __DEV__
   ? 'http://localhost:3000/api'
-  : 'https://your-production-api.com/api';
+  : 'http://urnuts/live';
 
 async function getToken(): Promise<string | null> {
   return SecureStore.getItemAsync('accessToken');

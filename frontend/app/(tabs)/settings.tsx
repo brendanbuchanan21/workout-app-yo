@@ -46,10 +46,11 @@ function feetInchesToCm(feet: number, inches: number): number {
   return Math.round((feet * 12 + inches) * 2.54);
 }
 
+
 export default function Settings() {
   const router = useRouter();
-  const { logout } = useAuth();
   const queryClient = useQueryClient();
+  const { logout } = useAuth();
 
   const { data, isLoading } = useQuery({
     queryKey: ['user', 'me'],
@@ -142,6 +143,11 @@ export default function Settings() {
     if (!s) return 'Not set';
     return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
   };
+
+  const logUserOut = async () => {
+    await logout();
+    router.replace('/auth/login');
+  }
 
   if (isLoading) {
     return (
@@ -386,7 +392,7 @@ export default function Settings() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.signOutButton} onPress={logout}>
+        <TouchableOpacity style={styles.signOutButton} onPress={logUserOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>

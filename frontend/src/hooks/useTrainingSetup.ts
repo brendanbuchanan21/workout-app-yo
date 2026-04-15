@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import { apiPost, apiGet } from '../utils/api';
 import { SPLIT_SUGGESTIONS, VOLUME_DEFAULTS, DEFAULT_VOLUME_GUARDRAILS } from '../constants/training';
 
-type SetupPath = 'choose' | 'template_browse' | 'template_detail' | 'template_customize' | 'plan' | 'plan_volume' | 'build_as_you_go';
+type SetupPath = 'choose' | 'phase_select' | 'template_browse' | 'template_detail' | 'template_customize' | 'plan' | 'plan_volume' | 'build_as_you_go';
 
 interface Template {
   id: string;
@@ -26,6 +26,8 @@ interface UseTrainingSetupParams {
 export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetupParams) {
   const [screen, setScreen] = useState<SetupPath>('choose');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phaseIntent, setPhaseIntent] = useState<'bulk' | 'cut' | 'maintain' | null>(null);
+  const [pendingPath, setPendingPath] = useState<SetupPath | null>(null);
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -86,6 +88,7 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
         daysPerWeek: template.daysPerWeek,
         setupMethod: 'template',
         lengthWeeks: customize ? templateLengthWeeks : template.lengthWeeks,
+        ...(phaseIntent && { phaseIntent }),
         ...(customize && {
           startingRir: templateStartingRir,
           rirFloor: templateRirFloor,
@@ -120,6 +123,7 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
         daysPerWeek,
         setupMethod,
         lengthWeeks: 5,
+        ...(phaseIntent && { phaseIntent }),
       };
       if (splitType === 'custom') {
         body.customDays = customDays;
@@ -172,6 +176,10 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
     screen,
     setScreen,
     isSubmitting,
+    phaseIntent,
+    setPhaseIntent,
+    pendingPath,
+    setPendingPath,
     templates,
     loadingTemplates,
     selectedTemplate,

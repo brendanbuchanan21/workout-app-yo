@@ -11,8 +11,8 @@ export interface Guardrail {
   ceiling: number;
 }
 
-export type InsightSeverity = 'info' | 'warning';
-export type InsightKind = 'above-ceiling' | 'below-floor' | 'declining';
+export type InsightSeverity = 'info' | 'warning' | 'success';
+export type InsightKind = 'above-ceiling' | 'below-floor' | 'declining' | 'progressing' | 'stalled' | 'regressing';
 
 export interface Insight {
   id: string;

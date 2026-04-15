@@ -13,14 +13,25 @@ function iconFor(kind: Insight['kind']): string {
   switch (kind) {
     case 'above-ceiling': return '!';
     case 'below-floor': return '+';
-    case 'declining': return '↓';
+    case 'declining': return '\u2193';
+    case 'progressing': return '\u2191';
+    case 'stalled': return '\u2013';
+    case 'regressing': return '\u2193';
+    default: return '?';
   }
 }
 
 export default function InsightCard({ insight, ctaLabel, onPressCta }: InsightCardProps) {
-  const isWarning = insight.severity === 'warning';
-  const iconBg = isWarning ? COLORS.warning_subtle : COLORS.accent_subtle;
-  const iconColor = isWarning ? COLORS.warning : COLORS.accent_primary;
+  const iconBg = insight.severity === 'warning'
+    ? COLORS.warning_subtle
+    : insight.severity === 'success'
+      ? COLORS.success + '20'
+      : COLORS.accent_subtle;
+  const iconColor = insight.severity === 'warning'
+    ? COLORS.warning
+    : insight.severity === 'success'
+      ? COLORS.success
+      : COLORS.accent_primary;
 
   return (
     <View style={styles.card}>

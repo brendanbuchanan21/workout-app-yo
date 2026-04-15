@@ -7,6 +7,7 @@ import { apiGet } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 import RecentPRs from '../../src/components/Home/RecentPRs';
+import RecommendationPanel from '../../src/components/Home/RecommendationPanel';
 import { PREvent } from '../../src/types/training';
 // NUTRITION_HIDDEN: MacroRing import removed
 
@@ -25,6 +26,7 @@ interface ActiveTrainingBlock {
   id: string;
   splitType: string;
   setupMethod: string | null;
+  phaseIntent: string | null;
   currentWeek: number;
   lengthWeeks: number;
   daysPerWeek: number;
@@ -75,8 +77,19 @@ export default function Dashboard() {
     queryKey: ['training', 'prs', 'feed'],
     queryFn: async () => {
       const res = await apiGet('/training/prs/feed');
-      if (!res.ok) return { prEvents: [] };
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.prEvents || []) as PREvent[];
+    },
+  });
+
+  const recsQuery = useQuery({
+    queryKey: ['training', 'recommendations'],
+    queryFn: async () => {
+      const res = await apiGet('/training/recommendations');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.recommendations || [];
     },
   });
 
@@ -85,12 +98,14 @@ export default function Dashboard() {
     blockQuery.refetch();
     todayQuery.refetch();
     prFeedQuery.refetch();
+    recsQuery.refetch();
   });
 
   const loading = userQuery.isLoading || blockQuery.isLoading || todayQuery.isLoading;
   const trainingBlock: ActiveTrainingBlock | null = blockQuery.data?.trainingBlock ?? null;
   const today: TodayContext | null = todayQuery.data ?? null;
-  const recentPRs: PREvent[] = prFeedQuery.data?.prEvents ?? [];
+  const recentPRs: PREvent[] = prFeedQuery.data ?? [];
+  const recommendations = recsQuery.data ?? [];
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -143,8 +158,12 @@ export default function Dashboard() {
   };
 
   const workoutInfo = getWorkoutInfo();
-  // NUTRITION_HIDDEN: phase badge now shows training week only
-  const weekLabel = trainingBlock ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}` : '';
+  const phaseLabel = trainingBlock?.phaseIntent
+    ? trainingBlock.phaseIntent.toUpperCase()
+    : null;
+  const weekLabel = trainingBlock
+    ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}${phaseLabel ? ` · ${phaseLabel}` : ''}`
+    : '';
 
   if (loading) {
     return (
@@ -187,6 +206,9 @@ export default function Dashboard() {
           </View>
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
         </TouchableOpacity>
+
+        {/* Recommendations */}
+        {trainingBlock && <RecommendationPanel recommendations={recommendations} />}
 
         {/* Recent PRs */}
         <RecentPRs events={recentPRs} />

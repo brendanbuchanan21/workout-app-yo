@@ -34,6 +34,26 @@ export function getEffectiveGuardrails(
   return result;
 }
 
+/**
+ * Adjust guardrail ceilings based on nutrition phase intent.
+ * Bulk/null: full growth ceilings. Maintain: ~67%. Cut: ~50% (maintenance volume).
+ * Floors stay the same in all phases to protect against muscle loss.
+ */
+export function getPhaseAdjustedGuardrails(
+  baseGuardrails: Record<string, { floor: number; ceiling: number }>,
+  phaseIntent: string | null,
+): Record<string, { floor: number; ceiling: number }> {
+  if (!phaseIntent || phaseIntent === 'bulk') return baseGuardrails;
+
+  const multiplier = phaseIntent === 'cut' ? 0.5 : 0.67;
+  const result: Record<string, { floor: number; ceiling: number }> = {};
+  for (const [muscle, g] of Object.entries(baseGuardrails)) {
+    const adjustedCeiling = Math.max(g.floor, Math.round(g.ceiling * multiplier));
+    result[muscle] = { floor: g.floor, ceiling: adjustedCeiling };
+  }
+  return result;
+}
+
 // Split day definitions: which muscle groups go on which day
 export const SPLIT_DEFINITIONS: Record<string, string[][]> = {
   push_pull_legs: [

@@ -6,6 +6,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import {
   VOLUME_GUARDRAILS,
   getEffectiveGuardrails,
+  getPhaseAdjustedGuardrails,
 } from '../services/workoutGenerator';
 
 const router = Router();
@@ -71,8 +72,9 @@ router.get('/volume-guardrails', requireAuth, async (req: AuthRequest, res: Resp
       where: { userId: req.userId!, status: 'active' },
     });
 
-    const effectiveGuardrails = getEffectiveGuardrails(block?.customGuardrails as any);
-    res.json({ guardrails: effectiveGuardrails, defaults: VOLUME_GUARDRAILS });
+    const baseGuardrails = getEffectiveGuardrails(block?.customGuardrails as any);
+    const guardrails = getPhaseAdjustedGuardrails(baseGuardrails, block?.phaseIntent ?? null);
+    res.json({ guardrails, defaults: VOLUME_GUARDRAILS });
   } catch (error) {
     console.error('Get volume guardrails error:', error);
     res.status(500).json({ error: 'Internal server error' });

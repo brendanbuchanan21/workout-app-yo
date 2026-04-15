@@ -11,6 +11,8 @@ import PRSearchBar from './PRSearchBar';
 import MuscleGroupPills from './MuscleGroupPills';
 import EquipmentIcon from '../EquipmentIcon';
 import MuscleGroupIcon from '../MuscleGroupIcon';
+import ProgressionBadge from './ProgressionBadge';
+import { ExerciseProgression } from '../../utils/progressionInsights';
 
 function formatWeight(kg: number): string {
   return `${Math.round(kg * 2.20462)} lbs`;
@@ -108,11 +110,13 @@ function computeE1rmData(exercises: EnrichedExerciseHistory[]): ExerciseWithE1rm
     .sort((a, b) => b.peakE1rm - a.peakE1rm);
 }
 
-function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail }: {
+function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, phaseIntent }: {
   ex: ExerciseWithE1rm;
   isExpanded: boolean;
   onToggle: () => void;
   onViewDetail?: (catalogId: string, exerciseName: string) => void;
+  progression?: ExerciseProgression;
+  phaseIntent?: string | null;
 }) {
   return (
     <TouchableOpacity
@@ -125,7 +129,10 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail }: {
           <MuscleGroupIcon muscle={ex.primaryMuscle} size={32} />
         </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardName}>{ex.exerciseName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}>
+            <Text style={styles.cardName}>{ex.exerciseName}</Text>
+            {progression && <ProgressionBadge status={progression.status} phaseIntent={phaseIntent} />}
+          </View>
           <Text style={styles.cardMeta}>
             {ex.history.length} session{ex.history.length !== 1 ? 's' : ''}
           </Text>
@@ -176,11 +183,13 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail }: {
   );
 }
 
-function ExerciseList({ exercises, expandedExercise, onToggle, onViewDetail }: {
+function ExerciseList({ exercises, expandedExercise, onToggle, onViewDetail, progressionMap, phaseIntent }: {
   exercises: ExerciseWithE1rm[];
   expandedExercise: string | null;
   onToggle: (key: string) => void;
   onViewDetail?: (catalogId: string, exerciseName: string) => void;
+  progressionMap?: Map<string, ExerciseProgression>;
+  phaseIntent?: string | null;
 }) {
   return (
     <>
@@ -193,6 +202,8 @@ function ExerciseList({ exercises, expandedExercise, onToggle, onViewDetail }: {
             isExpanded={expandedExercise === key}
             onToggle={() => onToggle(key)}
             onViewDetail={onViewDetail}
+            progression={progressionMap?.get(key)}
+            phaseIntent={phaseIntent}
           />
         );
       })}
@@ -200,11 +211,13 @@ function ExerciseList({ exercises, expandedExercise, onToggle, onViewDetail }: {
   );
 }
 
-function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDetail }: {
+function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDetail, progressionMap, phaseIntent }: {
   exercises: ExerciseWithE1rm[];
   expandedExercise: string | null;
   onToggle: (key: string) => void;
   onViewDetail?: (catalogId: string, exerciseName: string) => void;
+  progressionMap?: Map<string, ExerciseProgression>;
+  phaseIntent?: string | null;
 }) {
   const byEquipment: Record<string, ExerciseWithE1rm[]> = {};
   for (const ex of exercises) {
@@ -240,6 +253,8 @@ function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDet
             expandedExercise={expandedExercise}
             onToggle={onToggle}
             onViewDetail={onViewDetail}
+            progressionMap={progressionMap}
+            phaseIntent={phaseIntent}
           />
         </View>
       ))}
@@ -265,6 +280,25 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
       return (data.exercises || []) as EnrichedExerciseHistory[];
     },
   });
+
+  const progressionQuery = useQuery({
+    queryKey: ['training', 'progression-status'],
+    queryFn: async () => {
+      const res = await apiGet('/training/progression/status');
+      if (!res.ok) return { progressions: [] as ExerciseProgression[], phaseIntent: null as string | null };
+      return res.json();
+    },
+  });
+
+  const progressionMap = useMemo(() => {
+    const map = new Map<string, ExerciseProgression>();
+    for (const p of (progressionQuery.data?.progressions ?? [])) {
+      map.set(p.catalogId || p.exerciseName, p);
+    }
+    return map;
+  }, [progressionQuery.data]);
+
+  const phaseIntent = progressionQuery.data?.phaseIntent ?? null;
 
   const exercises = historyQuery.data ?? [];
 
@@ -330,6 +364,8 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
           expandedExercise={expandedExercise}
           onToggle={toggleExercise}
           onViewDetail={onViewDetail}
+          progressionMap={progressionMap}
+          phaseIntent={phaseIntent}
         />
       ) : selectedMuscle ? (
         <EquipmentGroupedList
@@ -337,6 +373,8 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
           expandedExercise={expandedExercise}
           onToggle={toggleExercise}
           onViewDetail={onViewDetail}
+          progressionMap={progressionMap}
+          phaseIntent={phaseIntent}
         />
       ) : (
         <ExerciseList
@@ -344,6 +382,8 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
           expandedExercise={expandedExercise}
           onToggle={toggleExercise}
           onViewDetail={onViewDetail}
+          progressionMap={progressionMap}
+          phaseIntent={phaseIntent}
         />
       )}
     </View>

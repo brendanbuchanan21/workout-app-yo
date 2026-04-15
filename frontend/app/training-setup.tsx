@@ -7,6 +7,7 @@ import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
 import { SPLIT_LABELS } from '../src/constants/training';
 import { useTrainingSetup } from '../src/hooks/useTrainingSetup';
 import PathChooser from '../src/components/TrainingSetup/PathChooser';
+import PhaseSelector from '../src/components/TrainingSetup/PhaseSelector';
 import { TemplateBrowse, TemplateDetail } from '../src/components/TrainingSetup/TemplateBrowser';
 import SplitBuilder from '../src/components/shared/SplitBuilder';
 import VolumeConfigurator from '../src/components/shared/VolumeConfigurator';
@@ -17,6 +18,8 @@ export default function TrainingSetup() {
 
   const {
     screen, setScreen, isSubmitting,
+    phaseIntent, setPhaseIntent,
+    pendingPath, setPendingPath,
     templates, loadingTemplates,
     selectedTemplate, setSelectedTemplate,
     dayOrder, setDayOrder,
@@ -74,10 +77,27 @@ export default function TrainingSetup() {
           <PathChooser
             onTemplate={() => {
               loadTemplates();
-              setScreen('template_browse');
+              setPendingPath('template_browse');
+              setScreen('phase_select');
             }}
-            onPlan={() => setScreen('plan')}
-            onBuildAsYouGo={() => setScreen('build_as_you_go')}
+            onPlan={() => {
+              setPendingPath('plan');
+              setScreen('phase_select');
+            }}
+            onBuildAsYouGo={() => {
+              setPendingPath('build_as_you_go');
+              setScreen('phase_select');
+            }}
+          />
+        )}
+
+        {screen === 'phase_select' && (
+          <PhaseSelector
+            selected={phaseIntent}
+            onSelect={setPhaseIntent}
+            onNext={() => {
+              if (pendingPath) setScreen(pendingPath);
+            }}
           />
         )}
 
@@ -209,9 +229,13 @@ export default function TrainingSetup() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
-              if (screen === 'template_detail') setScreen('template_browse');
+              if (screen === 'phase_select') setScreen('choose');
+              else if (screen === 'template_browse') setScreen('phase_select');
+              else if (screen === 'template_detail') setScreen('template_browse');
               else if (screen === 'template_customize') setScreen('template_detail');
+              else if (screen === 'plan') setScreen('phase_select');
               else if (screen === 'plan_volume') setScreen('plan');
+              else if (screen === 'build_as_you_go') setScreen('phase_select');
               else setScreen('choose');
             }}
           >

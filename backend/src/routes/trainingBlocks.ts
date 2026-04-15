@@ -40,6 +40,8 @@ const createBlockSchema = z.object({
   rirFloor: z.number().int().min(0).max(3).default(1),
   rirDecrementPerWeek: z.number().min(0.5).max(1).default(1),
   deloadRir: z.number().int().min(4).max(7).default(6),
+  phaseIntent: z.enum(['bulk', 'cut', 'maintain']).optional(),
+  targetWeightChangePerWeek: z.number().optional(),
 });
 
 router.post('/block/create', requireAuth, async (req: AuthRequest, res: Response) => {
@@ -77,6 +79,8 @@ router.post('/block/create', requireAuth, async (req: AuthRequest, res: Response
         rirFloor: data.rirFloor,
         rirDecrementPerWeek: data.rirDecrementPerWeek,
         deloadRir: data.deloadRir,
+        phaseIntent: data.phaseIntent,
+        targetWeightChangePerWeek: data.targetWeightChangePerWeek,
       },
     });
 
@@ -105,6 +109,8 @@ const updateBlockSchema = z.object({
   rirFloor: z.number().int().min(0).max(3).optional(),
   rirDecrementPerWeek: z.number().min(0.5).max(1).optional(),
   deloadRir: z.number().int().min(4).max(7).optional(),
+  phaseIntent: z.enum(['bulk', 'cut', 'maintain']).optional(),
+  targetWeightChangePerWeek: z.number().optional(),
 });
 
 router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response) => {

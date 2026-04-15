@@ -40,7 +40,7 @@ model User {
 model Subscription {
   id                String   @id @default(uuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id])
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   revenueCatId      String?
   status            String
   plan              String
@@ -51,7 +51,7 @@ model Subscription {
 model BodyWeight {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date      DateTime @db.Date
   weightKg  Float
   source    String   @default("manual")
@@ -63,7 +63,7 @@ model BodyWeight {
 model ProgressPhoto {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date      DateTime @db.Date
   imageUrl  String
   angle     String
@@ -73,7 +73,7 @@ model ProgressPhoto {
 model NutritionPhase {
   id              String   @id @default(uuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   status          String   @default("active")
   phaseType       String
   startDate       DateTime @db.Date
@@ -102,7 +102,7 @@ model NutritionPhase {
 model NutritionLog {
   id              String   @id @default(uuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date            DateTime @db.Date
   mealNumber      Int
 
@@ -149,7 +149,7 @@ model ProgramTemplate {
 model TrainingBlock {
   id              String   @id @default(uuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   status          String   @default("active")
   blockNumber     Int
   startDate       DateTime @db.Date
@@ -171,6 +171,9 @@ model TrainingBlock {
   rirDecrementPerWeek Float   @default(1)
   deloadRir           Int     @default(6)
 
+  phaseIntent                String?
+  targetWeightChangePerWeek  Float?
+
   workoutSessions WorkoutSession[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -182,9 +185,9 @@ model TrainingBlock {
 model WorkoutSession {
   id            String   @id @default(uuid())
   trainingBlockId String
-  trainingBlock   TrainingBlock @relation(fields: [trainingBlockId], references: [id])
+  trainingBlock   TrainingBlock @relation(fields: [trainingBlockId], references: [id], onDelete: Cascade)
   userId        String
-  user          User     @relation(fields: [userId], references: [id])
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date          DateTime @db.Date
   weekNumber    Int
   dayLabel      String
@@ -199,7 +202,7 @@ model WorkoutSession {
 model Exercise {
   id               String   @id @default(uuid())
   workoutSessionId String
-  workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id])
+  workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
   catalogId        String?
   orderIndex       Int
   exerciseName     String
@@ -212,7 +215,7 @@ model Exercise {
 model ExerciseSet {
   id          String   @id @default(uuid())
   exerciseId  String
-  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   setNumber   Int
   setType     String   @default("working")
 
@@ -230,7 +233,7 @@ model ExerciseSet {
 model WeeklyCheckIn {
   id              String   @id @default(uuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   weekStartDate   DateTime @db.Date
 
   avgWeightKg         Float?

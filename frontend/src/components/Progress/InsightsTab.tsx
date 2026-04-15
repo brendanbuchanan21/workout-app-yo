@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { detectVolumeInsights, Guardrail, Insight, VolumeWeek } from '../../utils/insights';
+import { deriveProgressionInsights, ExerciseProgression } from '../../utils/progressionInsights';
 import InsightCard from './InsightCard';
 
 interface InsightsTabProps {
@@ -34,11 +35,30 @@ export default function InsightsTab({ onJumpToMuscleVolume }: InsightsTabProps) 
     },
   });
 
+  const progressionQuery = useQuery({
+    queryKey: ['training', 'progression-status'],
+    queryFn: async () => {
+      const res = await apiGet('/training/progression/status');
+      if (!res.ok) return { progressions: [] as ExerciseProgression[], phaseIntent: null as string | null };
+      return res.json();
+    },
+  });
+
   const insights: Insight[] = useMemo(() => {
     const weeks = volumeHistoryQuery.data ?? [];
     const guardrails = guardrailsQuery.data ?? {};
-    return detectVolumeInsights(weeks, guardrails);
-  }, [volumeHistoryQuery.data, guardrailsQuery.data]);
+    const volumeInsights = detectVolumeInsights(weeks, guardrails);
+
+    const progressions = progressionQuery.data?.progressions ?? [];
+    const phaseIntent = progressionQuery.data?.phaseIntent ?? null;
+    const progressionInsights = deriveProgressionInsights(progressions, phaseIntent);
+
+    // Merge: warnings first, then info, then success
+    const all = [...volumeInsights, ...progressionInsights];
+    const severityOrder: Record<string, number> = { warning: 0, info: 1, success: 2 };
+    all.sort((a, b) => (severityOrder[a.severity] ?? 1) - (severityOrder[b.severity] ?? 1));
+    return all;
+  }, [volumeHistoryQuery.data, guardrailsQuery.data, progressionQuery.data]);
 
   const loading = volumeHistoryQuery.isLoading || guardrailsQuery.isLoading;
 

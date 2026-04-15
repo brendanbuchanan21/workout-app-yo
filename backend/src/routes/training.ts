@@ -7,6 +7,8 @@ import trainingBlockRoutes from './trainingBlocks';
 import sessionRoutes from './sessions';
 import workoutRoutes from './workouts';
 import volumeRoutes from './volume';
+import progressionRoutes from './progression';
+import recommendationRoutes from './recommendations';
 
 const router = Router();
 
@@ -17,6 +19,8 @@ router.use(trainingBlockRoutes);
 router.use(sessionRoutes);
 router.use(workoutRoutes);
 router.use(volumeRoutes);
+router.use(progressionRoutes);
+router.use(recommendationRoutes);
 
 // Workout activity dates for heat map (last 365 days)
 router.get('/activity', requireAuth, async (req: AuthRequest, res: Response) => {

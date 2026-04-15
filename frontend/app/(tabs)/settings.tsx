@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-
+import { apiDelete } from '../../src/utils/api';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet, apiPut } from '../../src/utils/api';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
@@ -76,6 +76,11 @@ export default function Settings() {
   const [activityLevel, setActivityLevel] = useState('');
   const [daysPerWeek, setDaysPerWeek] = useState(4);
   const [unitPreference, setUnitPreference] = useState('imperial');
+
+  // state for delete account
+  const [confirmDeleteMessage, setConfirmDeleteMessage] = useState(false)
+  const [deleteInput, setDeleteInput] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!user) return;
@@ -147,6 +152,27 @@ export default function Settings() {
   const logUserOut = async () => {
     await logout();
     router.replace('/auth/login');
+  }
+
+  const confirmDeleteAccount = () => {
+    setConfirmDeleteMessage(true)
+  }
+  const deleteAccount = async () => {
+    setLoading(true);
+    try {
+      const res = await apiDelete('/user/me');
+      if (res.ok) {
+        await logout();
+        router.replace('/auth/login');
+      } else {
+        Alert.alert('Error', 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+      Alert.alert('Error', 'Failed to delete account');
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (isLoading) {
@@ -392,6 +418,47 @@ export default function Settings() {
           </View>
         </View>
 
+        {/* Permanently Delete Account */}
+        {confirmDeleteMessage ? (
+          <View style={styles.deleteConfirmContainer}>
+            <Text style={styles.deleteConfirmLabel}>Please type this message to confirm:</Text>
+            <Text style={styles.deleteConfirmPhrase}>Permanently Delete My Account</Text>
+            <TextInput
+              style={styles.textInput}
+              value={deleteInput}
+              onChangeText={setDeleteInput}
+              placeholder="Type the message above"
+              placeholderTextColor={COLORS.text_tertiary}
+              autoFocus
+            />
+            <View style={styles.deleteConfirmButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => { setConfirmDeleteMessage(false); setDeleteInput(''); }}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.deleteConfirmButton,
+                  deleteInput !== 'Permanently Delete My Account' && styles.deleteConfirmButtonDisabled,
+                ]}
+                disabled={deleteInput !== 'Permanently Delete My Account'}
+                onPress={deleteAccount}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Delete Account</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => setConfirmDeleteMessage(true)}
+          >
+            <Text style={styles.deleteButtonText}>Permanently Delete Account</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.signOutButton} onPress={logUserOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
@@ -615,5 +682,56 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     fontSize: 15,
     fontWeight: '500',
+  },
+  deleteButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+  },
+  deleteButtonText: {
+    color: COLORS.danger,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  deleteConfirmContainer: {
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  deleteConfirmLabel: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+  },
+  deleteConfirmPhrase: {
+    color: COLORS.danger,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deleteConfirmButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.danger,
+    alignItems: 'center',
+  },
+  deleteConfirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  deleteConfirmButtonText: {
+    color: COLORS.text_on_accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

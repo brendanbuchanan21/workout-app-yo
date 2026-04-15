@@ -109,4 +109,15 @@ router.put('/me', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.delete('/me', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.user.delete({ where: { id: req.userId }})
+    res.status(200).json({ message: 'Account deleted' });
+  }
+  catch (error) {
+    console.error('Deleting user failed:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 export default router;

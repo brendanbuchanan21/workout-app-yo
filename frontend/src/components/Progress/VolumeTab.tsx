@@ -223,7 +223,7 @@ export default function VolumeTab({ exerciseComparison, initialMuscle }: VolumeT
 
       {exerciseComparison && exerciseComparison.exercises.length > 0 && (
         <>
-          <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl }]}>Week {exerciseComparison.currentWeek} vs Previous</Text>
+          <Text style={[styles.sectionTitle, { marginTop: SPACING.xxl, marginBottom: SPACING.md }]}>Week {exerciseComparison.currentWeek} vs Previous</Text>
           <Text style={styles.chartSubtitle}>Per-exercise sets and tonnage</Text>
           <ExerciseVolumeComparison
             exercises={exerciseComparison.exercises}

@@ -95,22 +95,22 @@ npm start
 Iron Cadence supports three training setup paths, all producing the same data model:
 
 1. **Pick a Template** — Choose from 5 pre-built programs (PPL Hypertrophy, Upper/Lower, Full Body, etc.)
-2. **Build Your Mesocycle** — Plan all training days upfront with custom splits
+2. **Build Your Training Block** — Plan all training days upfront with custom splits
 3. **Build As You Go** — Pick exercises day-by-day with volume tracking
 
 ### Periodization
 
 - Volume progresses weekly within MEV/MRV guardrails
-- RIR (Reps In Reserve) decreases across the mesocycle
+- RIR (Reps In Reserve) decreases across the training block
 - Final week is an automatic deload (50% volume)
 
 ### Data Model
 
 ```
-Mesocycle → WorkoutSession → Exercise → ExerciseSet
+TrainingBlock → WorkoutSession → Exercise → ExerciseSet
 ```
 
-Each mesocycle tracks split type, volume targets per muscle group, and periodization state.
+Each training block tracks split type, volume targets per muscle group, and periodization state.
 
 ## API Overview
 
@@ -120,7 +120,7 @@ All endpoints are prefixed with `/api`. Protected routes require `Authorization:
 |------|-----------|
 | Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/google` |
 | User | `GET /user/me`, `PUT /user/me` |
-| Training | Exercises CRUD, templates list/apply, mesocycle management, session CRUD, set logging |
+| Training | Exercises CRUD, templates list/apply, training block management, session CRUD, set logging |
 | Nutrition | Phase management, meal logging |
 | Progress | Body weight tracking, weekly check-ins |
 

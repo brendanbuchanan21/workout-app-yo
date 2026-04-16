@@ -512,6 +512,7 @@ const styles = StyleSheet.create({
   recordRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.md,
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border_subtle,
@@ -519,12 +520,13 @@ const styles = StyleSheet.create({
   recordDate: {
     color: COLORS.text_tertiary,
     fontSize: 12,
+    minWidth: 76,
   },
   recordWeight: {
     color: COLORS.text_primary,
     fontSize: 14,
     fontWeight: '600',
-    width: 90,
+    minWidth: 88,
   },
   recordE1rm: {
     color: COLORS.accent_primary,

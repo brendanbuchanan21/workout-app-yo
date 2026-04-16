@@ -12,6 +12,9 @@
 
 [ ] Remove jwt fallback 
 
-[ ] Make an account deletable
+[x] Make an account deletable
 
 [ ] We should be able to swipe up and refresh the application.. 
+
+[ ] We should offer a skip workout feature
+

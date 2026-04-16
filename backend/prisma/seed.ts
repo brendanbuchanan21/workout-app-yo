@@ -131,7 +131,7 @@ const exercises: ExerciseSeed[] = [
 const programTemplates = [
   {
     name: 'PPL Hypertrophy',
-    description: 'Classic Push/Pull/Legs split optimized for muscle growth. High volume with progressive overload across the mesocycle.',
+    description: 'Classic Push/Pull/Legs split optimized for muscle growth. High volume with progressive overload across the training block.',
     splitType: 'push_pull_legs',
     daysPerWeek: 6,
     lengthWeeks: 5,

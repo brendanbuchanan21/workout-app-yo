@@ -19,7 +19,7 @@ to grow?* It is the **prescription** half. It establishes the underlying
 science of *why* volume and proximity to failure are the levers that matter
 — the Schoenfeld / Pelland dose-response data, the load vs rep equivalence
 results from Plotkin and Chaves, the Refalo and Robinson proximity-to-failure
-findings, and the conclusion that volume should be the primary mesocycle-
+findings, and the conclusion that volume should be the primary training-block-
 level progression variable with load/reps as the within-session variable. It
 is how the app decides what to *prescribe* in the first place.
 
@@ -799,7 +799,7 @@ notes. Read together:
 - `progressive-overload-research.md` — volume dose-response, load vs rep
   progression, proximity-to-failure evidence, periodization. The "how to
   drive growth" counterpart to this "how to detect growth" document.
-- `rir-progression-model.md` — how the app prescribes RIR across a mesocycle,
+- `rir-progression-model.md` — how the app prescribes RIR across a training block,
   including RIR floors per movement type. Establishes what counts as a
   "controlled effort" set for matched-effort comparisons.
 - `rep-fatigue-model.md` — within-session rep drop-off prediction. Used to

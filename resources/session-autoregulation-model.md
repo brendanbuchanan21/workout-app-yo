@@ -46,7 +46,7 @@ If reported RIR is consistently 3+ above target across multiple sets/sessions, t
 
 ## Volume Prescription
 
-Volume follows the mesocycle's planned progression (base + 1 set every 2 weeks) with performance-based overrides:
+Volume follows the training block's planned progression (base + 1 set every 2 weeks) with performance-based overrides:
 
 ### Session Performance Score
 
@@ -71,7 +71,7 @@ Each session generates a performance assessment per exercise based on:
 
 ### Deload Triggers
 
-The planned deload (last week of mesocycle) always occurs. An **early deload** is suggested if:
+The planned deload (last week of the training block) always occurs. An **early deload** is suggested if:
 - Performance declines across 3+ exercises in the same session for 2+ consecutive sessions
 - User reports inability to complete planned volume repeatedly
 
@@ -112,7 +112,7 @@ The system fetches the **3 most recent completed sessions** for the same day lab
 inputs:
   lastSession    = most recent completed session (N)
   olderSessions  = [session N-1, session N-2] (as available)
-  targetRIR      = mesocycle RIR for current week
+  targetRIR      = training block RIR for current week
   repRange       = [low, high] from exercise catalog
 
 1. DECLINE DETECTION
@@ -140,7 +140,7 @@ inputs:
      else:
        nextWeight = prevWeight
        nextTargetReps = min(prevReps + 1, topOfRepRange)
-     nextTargetRIR = mesocycle RIR for this week
+     nextTargetRIR = training block RIR for this week
 
 5. FLAGS
    - Sandbagging: avgRIR >= targetRIR + 3

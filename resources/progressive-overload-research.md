@@ -249,7 +249,7 @@ What does the evidence say about the optimal ORDER of progression variables
   - Heavy loads ARE superior for maximal strength
   - Light loads are superior for muscular endurance
 - **Implication:** The "rep range" for hypertrophy is much wider than
-  traditionally believed. This means load progression within a mesocycle is
+  traditionally believed. This means load progression within a training block is
   less critical for hypertrophy than previously thought.
 
 ---
@@ -382,21 +382,21 @@ What does the evidence say about the optimal ORDER of progression variables
 
 ### Israetel, Feather, Faleiro & Gentil (2019)
 
-- **Citation:** Israetel MA, Feather J, Faleiro TV, Gentil P. Mesocycle
+- **Citation:** Israetel MA, Feather J, Faleiro TV, Gentil P. Training block
   progression in hypertrophy: Volume versus intensity. Strength Cond J.
   2021;43(4):45-51.
 - **Design:** Narrative review / expert opinion piece
 - **Key argument:**
-  - Three ways to progress within a mesocycle: add weight, add reps, add sets
+  - Three ways to progress within a training block: add weight, add reps, add sets
   - **Their recommendation: prioritize set (volume) progression** as the
-    primary driver within a mesocycle
+    primary driver within a training block
   - Reasoning: the dose-response between volume and hypertrophy is well
     established, while load range has minimal impact on hypertrophy
   - Intensity progression should be secondary
   - "Some of all 3" is ideal, but set progression is "probably being the most
     well supported"
 - **Their model:**
-  - Start mesocycle at MEV (Minimum Effective Volume)
+  - Start the training block at MEV (Minimum Effective Volume)
   - Ramp volume weekly through MAV (Maximum Adaptive Volume)
   - Approach MRV (Maximum Recoverable Volume) in final week
   - Keep load relatively stable or modestly increasing
@@ -496,9 +496,9 @@ ordering.** However, we can make evidence-informed inferences:
   1. **Within a session:** Push reps toward top of range (effort progression)
   2. **Between sessions:** When top of rep range is reached, add load (double
      progression)
-  3. **Across weeks in a mesocycle:** Add 1-2 sets per muscle group per week
+  3. **Across weeks in a training block:** Add 1-2 sets per muscle group per week
      (volume progression)
-  4. **Between mesocycles:** Reset volume to MEV, potentially with higher
+  4. **Between training blocks:** Reset volume to MEV, potentially with higher
      baseline loads
 
 #### The Most Defensible Evidence-Based Position
@@ -522,7 +522,7 @@ Based on ALL available evidence, the following hierarchy emerges:
    indefinitely. Periodic resets are necessary. (Amirthalingam 2017,
    Heaselgrave 2019)
 
-This is essentially a hybrid model where volume is the primary mesocycle-level
+This is essentially a hybrid model where volume is the primary training-block-level
 progression variable and load/reps are the primary session-level progression
 variables. This aligns with both the RP approach and practical double
 progression, combining the strengths of each.

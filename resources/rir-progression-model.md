@@ -5,11 +5,11 @@
 - **Backend:** `backend/src/services/workoutGenerator.ts` — `getRirForWeek()` function
 - **Backend:** `backend/src/routes/training.ts` — session creation, today endpoint, template application
 - **Frontend:** `frontend/app/(tabs)/train.tsx` — RIR display in workout header, set logging inputs, fatigue estimation model
-- **Feature:** Determines the target RIR for each week of a mesocycle, controlling how close to failure the user trains as the block progresses
+- **Feature:** Determines the target RIR for each week of a training block, controlling how close to failure the user trains as the block progresses
 
 ## How It Works
 
-RIR (Reps in Reserve) decreases across a mesocycle, progressively pushing the lifter closer to failure as they adapt. The system uses configurable parameters:
+RIR (Reps in Reserve) decreases across a training block, progressively pushing the lifter closer to failure as they adapt. The system uses configurable parameters:
 
 - **Starting RIR** — how far from failure the first week begins
 - **RIR Floor** — the minimum RIR allowed (may differ for compound vs isolation exercises)
@@ -31,9 +31,9 @@ targetRir(week) =
 | Starting RIR | 3 | 2-5 | Beginners: 4-5. Intermediate: 3. Advanced: 2-3 |
 | RIR Floor (compounds) | 1 | 0-3 | Squat/deadlift/bench: 1-2. Rows/OHP: 1 |
 | RIR Floor (isolations) | 0 | 0-2 | Safe to reach failure on machines and single-joint work |
-| RIR Decrement per week | 1 | 0.5-1 | Use 0.5 for longer mesocycles (6+ weeks) |
+| RIR Decrement per week | 1 | 0.5-1 | Use 0.5 for longer training blocks (6+ weeks) |
 | Deload RIR | 6 | 4-7 | Light effort, focus on movement quality |
-| Mesocycle length | 4 weeks + deload | 3-6 weeks + deload | Must fit the RIR progression |
+| Training block length | 4 weeks + deload | 3-6 weeks + deload | Must fit the RIR progression |
 
 ### Validation Rule
 
@@ -91,7 +91,7 @@ This is because compound lifts carry higher injury risk at failure and greater s
 
 ### Why Progressive RIR Reduction Works
 
-Training further from failure produces less fatigue per unit of stimulus. Starting a mesocycle at higher RIR allows:
+Training further from failure produces less fatigue per unit of stimulus. Starting a training block at higher RIR allows:
 1. Volume to accumulate without excessive fatigue
 2. Progressive overload through intensity (closer to failure) week over week
 3. A deload to dissipate fatigue before the next block
@@ -137,7 +137,7 @@ People's ability to estimate RIR affects how useful the system is:
 - **Frequency:** Every 4-6 weeks (mean 5.6 weeks)
 - **Volume reduction:** 40-60% (most common: halve the number of sets)
 - **RIR during deload:** 5-7 (light effort)
-- **Placement:** Typically the final week of a mesocycle
+- **Placement:** Typically the final week of a training block
 
 Two valid approaches:
 1. **Reduce volume, maintain intensity** — better for preserving strength
@@ -207,9 +207,9 @@ Two valid approaches:
 - **Used for:** Higher default starting RIR and floor for older populations
 - **URL:** https://www.sciencedirect.com/science/article/pii/S053155652500213X
 
-### 10. Renaissance Periodization (Israetel) — Mesocycle RIR Framework
+### 10. Renaissance Periodization (Israetel) — Training Block RIR Framework
 
-- **What:** Coaching framework for RIR-based mesocycle programming
+- **What:** Coaching framework for RIR-based training block programming
 - **Key recommendations:** Start at 3-4 RIR, end at 0-1 RIR. RIR 0 acceptable on isolations/machines. Volume increases alongside intensity. Deload every 4th week.
 - **Used for:** Default progression model, compound vs isolation floor distinction
 - **URL:** https://rpstrength.com/blogs/articles/progressing-for-hypertrophy

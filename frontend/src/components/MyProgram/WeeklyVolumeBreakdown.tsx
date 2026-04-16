@@ -121,7 +121,7 @@ export default function WeeklyVolumeBreakdown({
                 const barH = (clamped / scaleMax) * BAR_AREA_HEIGHT;
                 const y = BAR_AREA_HEIGHT - barH;
 
-                let fill = COLORS.text_tertiary;
+                let fill: string = COLORS.text_tertiary;
                 if (isCurrent) fill = COLORS.accent_primary;
                 else if (isPast) fill = sets >= target ? COLORS.success : COLORS.accent_muted;
                 else if (isFuture) fill = COLORS.text_tertiary;

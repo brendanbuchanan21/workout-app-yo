@@ -23,7 +23,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: COLORS.warning,
-  medium: COLORS.accent,
+  medium: COLORS.accent_primary,
   low: COLORS.success,
 };
 

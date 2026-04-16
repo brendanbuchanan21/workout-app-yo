@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   phaseCardSelected: {
-    borderColor: COLORS.accent,
+    borderColor: COLORS.accent_primary,
     backgroundColor: COLORS.bg_secondary,
   },
   phaseTitle: {
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   continueBtn: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accent_primary,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',

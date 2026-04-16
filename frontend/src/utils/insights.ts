@@ -13,6 +13,7 @@ export interface Guardrail {
 
 export type InsightSeverity = 'info' | 'warning' | 'success';
 export type InsightKind = 'above-ceiling' | 'below-floor' | 'declining' | 'progressing' | 'stalled' | 'regressing';
+type VolumeInsightKind = 'above-ceiling' | 'below-floor' | 'declining';
 
 export interface Insight {
   id: string;
@@ -140,11 +141,15 @@ function detectDeclining(muscle: string, series: number[]): Insight | null {
 
 // Priority when multiple insights fire for the same muscle.
 // Higher number wins.
-const KIND_PRIORITY: Record<InsightKind, number> = {
+const KIND_PRIORITY: Record<VolumeInsightKind, number> = {
   'above-ceiling': 3,
   'below-floor': 2,
   'declining': 1,
 };
+
+function getKindPriority(kind: InsightKind): number {
+  return KIND_PRIORITY[kind as VolumeInsightKind] ?? 0;
+}
 
 export function detectVolumeInsights(
   weeks: VolumeWeek[],
@@ -172,14 +177,14 @@ export function detectVolumeInsights(
     if (declining) candidates.push(declining);
 
     if (candidates.length === 0) continue;
-    candidates.sort((a, b) => KIND_PRIORITY[b.kind] - KIND_PRIORITY[a.kind]);
+    candidates.sort((a, b) => getKindPriority(b.kind) - getKindPriority(a.kind));
     picked.push(candidates[0]);
   }
 
   // Sort final list by severity (warnings first), then by kind priority.
   picked.sort((a, b) => {
     if (a.severity !== b.severity) return a.severity === 'warning' ? -1 : 1;
-    return KIND_PRIORITY[b.kind] - KIND_PRIORITY[a.kind];
+    return getKindPriority(b.kind) - getKindPriority(a.kind);
   });
 
   return picked;

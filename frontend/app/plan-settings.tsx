@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
 import { SPLIT_LABELS } from '../src/constants/training';
@@ -60,6 +61,7 @@ export default function PlanSettings() {
   const startDateStr = new Date(block.startDate).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
+  const splitLocked = (block.workoutSessions || []).some((session) => session.status === 'completed');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,13 +94,33 @@ export default function PlanSettings() {
         </View>
 
         {/* Training Split */}
-        <Text style={styles.sectionTitle}>Training Split</Text>
+        <Text style={[styles.sectionTitle, splitLocked && styles.sectionTitleWithHint]}>
+          Training Split
+        </Text>
+        {splitLocked && (
+          <View style={styles.splitLockHintRow}>
+            <Ionicons
+              name="lock-closed"
+              size={15}
+              color={COLORS.accent_muted}
+              style={styles.splitLockHintIcon}
+            />
+            <Text style={styles.splitLockHint}>
+              Split is locked after your first completed session. End this block to choose a different program style.
+            </Text>
+          </View>
+        )}
         <View style={styles.optionRow}>
           {(['full_body', 'upper_lower', 'push_pull_legs', 'custom'] as const).map((s) => (
             <TouchableOpacity
               key={s}
-              style={[styles.splitOption, splitType === s && styles.splitOptionSelected]}
+              style={[
+                styles.splitOption,
+                splitType === s && styles.splitOptionSelected,
+                splitLocked && splitType !== s && styles.splitOptionDisabled,
+              ]}
               onPress={() => handleSplitChange(s)}
+              disabled={splitLocked}
             >
               <Text style={[styles.splitOptionText, splitType === s && styles.splitOptionTextSelected]}>
                 {SPLIT_LABELS[s]}
@@ -268,6 +290,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     marginTop: SPACING.xl,
   },
+  sectionTitleWithHint: {
+    marginBottom: SPACING.xs,
+  },
   fieldLabel: {
     fontSize: 13,
     color: COLORS.text_tertiary,
@@ -287,6 +312,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  splitLockHintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  splitLockHintIcon: {
+    marginTop: 1,
+  },
+  splitLockHint: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.text_tertiary,
+    fontWeight: '400',
+  },
   emptyText: {
     color: COLORS.text_secondary,
     fontSize: 16,
@@ -295,6 +336,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
+    marginTop: 10,
   },
   splitOption: {
     paddingVertical: SPACING.md,
@@ -307,6 +349,9 @@ const styles = StyleSheet.create({
   splitOptionSelected: {
     backgroundColor: COLORS.accent_subtle,
     borderColor: COLORS.accent_muted,
+  },
+  splitOptionDisabled: {
+    opacity: 0.45,
   },
   splitOptionText: {
     color: COLORS.text_secondary,

@@ -23,6 +23,7 @@ interface TrainingBlock {
   rirFloor: number;
   rirDecrementPerWeek: number;
   deloadRir: number;
+  workoutSessions?: { status: string }[];
 }
 
 export default function usePlanSettings() {
@@ -220,6 +221,8 @@ export default function usePlanSettings() {
   };
 
   const handleSplitChange = (newSplit: string) => {
+    const hasCompletedSessions = (block?.workoutSessions || []).some((session) => session.status === 'completed');
+    if (hasCompletedSessions) return;
     setSplitType(newSplit);
     if (newSplit === 'custom' && customDays.length !== daysPerWeek) {
       setCustomDays(

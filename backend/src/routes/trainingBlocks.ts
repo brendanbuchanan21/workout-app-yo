@@ -126,6 +126,23 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
       return;
     }
 
+    const splitChangeRequested = data.splitType !== undefined && data.splitType !== block.splitType;
+    if (splitChangeRequested) {
+      const completedSessions = await prisma.workoutSession.count({
+        where: {
+          trainingBlockId: block.id,
+          status: 'completed',
+        },
+      });
+
+      if (completedSessions > 0) {
+        res.status(400).json({
+          error: 'Split type is locked after you start the block. End this block to switch program styles.',
+        });
+        return;
+      }
+    }
+
     // Validate lengthWeeks >= currentWeek
     if (data.lengthWeeks !== undefined && data.lengthWeeks < block.currentWeek) {
       res.status(400).json({ error: `Cannot shorten below current week (${block.currentWeek})` });

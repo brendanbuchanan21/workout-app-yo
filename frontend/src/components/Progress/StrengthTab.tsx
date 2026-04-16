@@ -129,7 +129,7 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
           <MuscleGroupIcon muscle={ex.primaryMuscle} size={32} />
         </View>
         <View style={styles.cardInfo}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}>
+          <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm }}>
             <Text style={styles.cardName}>{ex.exerciseName}</Text>
             {progression && <ProgressionBadge status={progression.status} phaseIntent={phaseIntent} />}
           </View>
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   cardWeight: {
-    color: COLORS.accent_primary,
+    color: 'white',
     fontSize: 18,
     fontWeight: '700',
   },

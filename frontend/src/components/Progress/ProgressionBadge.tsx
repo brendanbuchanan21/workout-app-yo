@@ -9,7 +9,7 @@ interface ProgressionBadgeProps {
 
 const CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   progressing: { label: 'Progressing', color: COLORS.success, icon: '\u2191' },
-  stalled: { label: 'Stalled', color: COLORS.accent, icon: '\u2013' },
+  stalled: { label: 'Stalled', color: COLORS.warning, icon: '\u2013' },
   regressing: { label: 'Regressing', color: COLORS.danger, icon: '\u2193' },
   // During a cut, stalled is reframed as success
   stalled_cut: { label: 'Maintaining', color: COLORS.success, icon: '\u2713' },

@@ -18,3 +18,4 @@
 
 [ ] We should offer a skip workout feature
 
+[ ] Allow a user to generate their own template

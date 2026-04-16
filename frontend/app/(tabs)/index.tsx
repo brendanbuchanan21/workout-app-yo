@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
@@ -201,7 +202,12 @@ export default function Dashboard() {
               <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
             </View>
             <View style={styles.playButton}>
-              <Text style={styles.playIcon}>{workoutInfo.isBuildable ? '+' : '>'}</Text>
+              <Ionicons
+                name={workoutInfo.isBuildable ? 'add' : 'play'}
+                size={workoutInfo.isBuildable ? 22 : 16}
+                color={COLORS.text_on_accent}
+                style={!workoutInfo.isBuildable ? styles.playIconOffset : undefined}
+              />
             </View>
           </View>
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
@@ -309,10 +315,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playIcon: {
-    color: COLORS.text_on_accent,
-    fontSize: 18,
-    fontWeight: '700',
+  playIconOffset: {
+    marginLeft: 3,
   },
   quickActions: {
     flexDirection: 'row',

@@ -9,8 +9,6 @@ interface RirProgressionProps {
   setRirFloor: (v: number) => void;
   rirDecrementPerWeek: number;
   setRirDecrementPerWeek: (v: number) => void;
-  deloadRir: number;
-  setDeloadRir: (v: number) => void;
   lengthWeeks: number;
   currentWeek: number;
 }
@@ -22,8 +20,6 @@ const RirProgression = ({
   setRirFloor,
   rirDecrementPerWeek,
   setRirDecrementPerWeek,
-  deloadRir,
-  setDeloadRir,
   lengthWeeks,
   currentWeek,
 }: RirProgressionProps) => (
@@ -102,38 +98,22 @@ const RirProgression = ({
       ))}
     </View>
 
-    <Text style={[styles.fieldLabel, { marginTop: SPACING.lg }]}>Deload RIR</Text>
-    <View style={styles.buttonRow}>
-      {[4, 5, 6, 7].map((v) => (
-        <TouchableOpacity
-          key={v}
-          style={[styles.numButton, deloadRir === v && styles.numButtonSelected]}
-          onPress={() => setDeloadRir(v)}
-        >
-          <Text style={[styles.numButtonText, deloadRir === v && styles.numButtonTextSelected]}>{v}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-
     <View style={styles.rirPreview}>
       <Text style={styles.rirPreviewTitle}>Weekly progression</Text>
       <View style={styles.rirPreviewRow}>
         {Array.from({ length: lengthWeeks }, (_, i) => {
           const week = i + 1;
-          const isDeload = week === lengthWeeks;
           const rawRir = startingRir - i * rirDecrementPerWeek;
-          const weekRir = isDeload ? deloadRir : Math.max(rirFloor, Math.round(rawRir));
+          const weekRir = Math.max(rirFloor, Math.round(rawRir));
           return (
             <View key={week} style={styles.rirPreviewWeek}>
               <Text style={styles.rirPreviewWeekLabel}>W{week}</Text>
               <Text style={[
                 styles.rirPreviewValue,
-                isDeload && { color: COLORS.text_tertiary },
                 week === currentWeek && { color: COLORS.accent_primary },
               ]}>
                 {weekRir}
               </Text>
-              {isDeload && <Text style={styles.rirPreviewDeload}>DL</Text>}
             </View>
           );
         })}
@@ -219,10 +199,5 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
     fontSize: 16,
     fontWeight: '700',
-  },
-  rirPreviewDeload: {
-    color: COLORS.text_tertiary,
-    fontSize: 9,
-    marginTop: 1,
   },
 });

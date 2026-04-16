@@ -107,7 +107,6 @@ router.post('/templates/:id/apply', requireAuth, async (req: AuthRequest, res: R
     // Generate workout sessions from currentWeek onward
     for (let week = block.currentWeek; week <= block.lengthWeeks; week++) {
       const rir = getRirForWeek(week, block.lengthWeeks, block);
-      const isDeload = week === block.lengthWeeks;
 
       for (let dayIdx = 0; dayIdx < days.length; dayIdx++) {
         const day = days[dayIdx];
@@ -126,8 +125,6 @@ router.post('/templates/:id/apply', requireAuth, async (req: AuthRequest, res: R
         // Create exercises and sets
         for (let exIdx = 0; exIdx < day.exercises.length; exIdx++) {
           const exDef = day.exercises[exIdx];
-          const baseSets = exDef.sets;
-          const weekSets = isDeload ? Math.ceil(baseSets * 0.5) : baseSets;
 
           // Look up catalog entry
           const catalogEntry = await prisma.exerciseCatalog.findFirst({
@@ -148,7 +145,7 @@ router.post('/templates/:id/apply', requireAuth, async (req: AuthRequest, res: R
           });
 
           // Create sets
-          for (let s = 1; s <= weekSets; s++) {
+          for (let s = 1; s <= exDef.sets; s++) {
             await prisma.exerciseSet.create({
               data: {
                 exerciseId: exercise.id,

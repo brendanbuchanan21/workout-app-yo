@@ -26,7 +26,6 @@ export default function TrainingSetup() {
     templateLengthWeeks, setTemplateLengthWeeks,
     templateStartingRir, setTemplateStartingRir,
     templateRirFloor, setTemplateRirFloor,
-    templateDeloadRir, setTemplateDeloadRir,
     daysPerWeek, splitType, customDays,
     editingDayIndex, setEditingDayIndex, setCustomDays,
     volumeTargets, setVolumeTargets,
@@ -160,7 +159,7 @@ export default function TrainingSetup() {
             </View>
 
             <Text style={styles.sectionTitle}>RIR Floor</Text>
-            <Text style={styles.settingDesc}>Lowest RIR before deload week</Text>
+            <Text style={styles.settingDesc}>Lowest RIR the block will reach</Text>
             <View style={styles.optionRow}>
               {[2, 1, 0].map((r) => (
                 <TouchableOpacity
@@ -175,21 +174,6 @@ export default function TrainingSetup() {
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Deload RIR</Text>
-            <Text style={styles.settingDesc}>RIR for the final recovery week</Text>
-            <View style={styles.optionRow}>
-              {[5, 6, 7].map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.optionPill, templateDeloadRir === r && styles.optionPillSelected]}
-                  onPress={() => setTemplateDeloadRir(r)}
-                >
-                  <Text style={[styles.optionPillText, templateDeloadRir === r && styles.optionPillTextSelected]}>
-                    RIR {r}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         )}
 

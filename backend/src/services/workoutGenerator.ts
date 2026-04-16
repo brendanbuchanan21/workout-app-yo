@@ -85,19 +85,13 @@ export const SPLIT_DAY_LABELS: Record<string, string[]> = {
 
 /**
  * Calculate volume (sets) for a given week within a training block.
- * Week 1 = base volume, increases ~1-2 sets per week, deload = 50%.
+ * Week 1 = base volume, then increases ~1 set every 2 weeks.
  */
 export function getSetsForWeek(
   baseVolume: number,
   weekNumber: number,
   lengthWeeks: number
 ): number {
-  const deloadWeek = lengthWeeks;
-
-  if (weekNumber === deloadWeek) {
-    return Math.round(baseVolume * 0.5);
-  }
-
   // Progressive overload: +1 set every 2 working weeks
   const additionalSets = Math.floor((weekNumber - 1) / 2);
   return baseVolume + additionalSets;
@@ -105,7 +99,7 @@ export function getSetsForWeek(
 
 /**
  * Get target RIR for a given week.
- * Uses training block config for starting RIR, floor, decrement, and deload RIR.
+ * Uses training block config for starting RIR, floor, and decrement.
  * See resources/rir-progression-model.md for research basis.
  */
 export interface RirConfig {
@@ -127,12 +121,10 @@ export function getRirForWeek(
   lengthWeeks: number,
   config?: Partial<RirConfig>,
 ): number {
-  const { startingRir, rirFloor, rirDecrementPerWeek, deloadRir } = {
+  const { startingRir, rirFloor, rirDecrementPerWeek } = {
     ...DEFAULT_RIR_CONFIG,
     ...config,
   };
-
-  if (weekNumber === lengthWeeks) return deloadRir;
 
   const rawRir = startingRir - (weekNumber - 1) * rirDecrementPerWeek;
   return Math.max(rirFloor, Math.round(rawRir));

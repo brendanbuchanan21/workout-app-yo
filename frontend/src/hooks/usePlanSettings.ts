@@ -22,7 +22,6 @@ interface TrainingBlock {
   startingRir: number;
   rirFloor: number;
   rirDecrementPerWeek: number;
-  deloadRir: number;
   workoutSessions?: { status: string }[];
 }
 
@@ -50,7 +49,6 @@ export default function usePlanSettings() {
   const [startingRir, setStartingRir] = useState(3);
   const [rirFloor, setRirFloor] = useState(1);
   const [rirDecrementPerWeek, setRirDecrementPerWeek] = useState(1);
-  const [deloadRir, setDeloadRir] = useState(6);
 
   // Track original values for dirty check
   const [original, setOriginal] = useState<{
@@ -62,7 +60,6 @@ export default function usePlanSettings() {
     startingRir: number;
     rirFloor: number;
     rirDecrementPerWeek: number;
-    deloadRir: number;
   } | null>(null);
 
   useEffect(() => {
@@ -88,7 +85,6 @@ export default function usePlanSettings() {
       setStartingRir(b.startingRir ?? 3);
       setRirFloor(b.rirFloor ?? 1);
       setRirDecrementPerWeek(b.rirDecrementPerWeek ?? 1);
-      setDeloadRir(b.deloadRir ?? 6);
 
       try {
         const gRes = await apiGet('/training/volume-guardrails');
@@ -107,7 +103,6 @@ export default function usePlanSettings() {
         startingRir: b.startingRir ?? 3,
         rirFloor: b.rirFloor ?? 1,
         rirDecrementPerWeek: b.rirDecrementPerWeek ?? 1,
-        deloadRir: b.deloadRir ?? 6,
       });
     } catch (err) {
       console.error('Load plan settings error:', err);
@@ -124,8 +119,7 @@ export default function usePlanSettings() {
     JSON.stringify(volumeTargets) !== original.volumeTargets ||
     startingRir !== original.startingRir ||
     rirFloor !== original.rirFloor ||
-    rirDecrementPerWeek !== original.rirDecrementPerWeek ||
-    deloadRir !== original.deloadRir
+    rirDecrementPerWeek !== original.rirDecrementPerWeek
   ));
 
   const handleSave = async () => {
@@ -145,7 +139,6 @@ export default function usePlanSettings() {
       if (startingRir !== original!.startingRir) body.startingRir = startingRir;
       if (rirFloor !== original!.rirFloor) body.rirFloor = rirFloor;
       if (rirDecrementPerWeek !== original!.rirDecrementPerWeek) body.rirDecrementPerWeek = rirDecrementPerWeek;
-      if (deloadRir !== original!.deloadRir) body.deloadRir = deloadRir;
 
       if (guardrailsDirty) {
         const customGuardrails: Record<string, { floor?: number; ceiling?: number }> = {};
@@ -182,7 +175,6 @@ export default function usePlanSettings() {
         startingRir,
         rirFloor,
         rirDecrementPerWeek,
-        deloadRir,
       });
 
       Alert.alert('Saved', 'Plan settings updated');
@@ -272,8 +264,6 @@ export default function usePlanSettings() {
     setRirFloor,
     rirDecrementPerWeek,
     setRirDecrementPerWeek,
-    deloadRir,
-    setDeloadRir,
     setLengthWeeks,
     isDirty,
     handleSave,

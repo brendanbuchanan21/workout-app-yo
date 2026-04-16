@@ -29,7 +29,6 @@ export default function PlanSettings() {
     startingRir, setStartingRir,
     rirFloor, setRirFloor,
     rirDecrementPerWeek, setRirDecrementPerWeek,
-    deloadRir, setDeloadRir,
     setLengthWeeks,
     isDirty, handleSave, handleEndBlock,
     handleSplitChange, handleDaysChange,
@@ -189,8 +188,6 @@ export default function PlanSettings() {
           setRirFloor={setRirFloor}
           rirDecrementPerWeek={rirDecrementPerWeek}
           setRirDecrementPerWeek={setRirDecrementPerWeek}
-          deloadRir={deloadRir}
-          setDeloadRir={setDeloadRir}
           lengthWeeks={lengthWeeks}
           currentWeek={block.currentWeek}
         />

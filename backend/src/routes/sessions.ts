@@ -405,7 +405,6 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
     // Update each planned session: delete old exercises, create new ones
     for (const session of plannedSessions) {
       const rir = getRirForWeek(session.weekNumber, block.lengthWeeks, block);
-      const isDeload = session.weekNumber === block.lengthWeeks;
 
       // Delete existing exercises (cascades to sets)
       await prisma.exercise.deleteMany({
@@ -415,8 +414,6 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
       // Create new exercises
       for (let i = 0; i < data.exercises.length; i++) {
         const exDef = data.exercises[i];
-        const baseSets = exDef.sets;
-        const weekSets = isDeload ? Math.ceil(baseSets * 0.5) : baseSets;
         const midReps = Math.round(((exDef.repRangeLow || 6) + (exDef.repRangeHigh || 12)) / 2);
 
         const exercise = await prisma.exercise.create({
@@ -429,7 +426,7 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
           },
         });
 
-        for (let s = 1; s <= weekSets; s++) {
+        for (let s = 1; s <= exDef.sets; s++) {
           await prisma.exerciseSet.create({
             data: {
               exerciseId: exercise.id,

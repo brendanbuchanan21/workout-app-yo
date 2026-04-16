@@ -38,7 +38,6 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
   const [templateLengthWeeks, setTemplateLengthWeeks] = useState(5);
   const [templateStartingRir, setTemplateStartingRir] = useState(3);
   const [templateRirFloor, setTemplateRirFloor] = useState(1);
-  const [templateDeloadRir, setTemplateDeloadRir] = useState(6);
 
   const userDays = user?.daysPerWeek || 4;
   const [daysPerWeek, setDaysPerWeek] = useState(userDays);
@@ -92,7 +91,6 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
         ...(customize && {
           startingRir: templateStartingRir,
           rirFloor: templateRirFloor,
-          deloadRir: templateDeloadRir,
         }),
       });
       if (!createRes.ok) {
@@ -189,7 +187,6 @@ export function useTrainingSetup({ user, refreshUser, router }: UseTrainingSetup
     templateLengthWeeks, setTemplateLengthWeeks,
     templateStartingRir, setTemplateStartingRir,
     templateRirFloor, setTemplateRirFloor,
-    templateDeloadRir, setTemplateDeloadRir,
     daysPerWeek,
     splitType,
     customDays,

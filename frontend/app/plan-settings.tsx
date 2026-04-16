@@ -130,6 +130,13 @@ export default function PlanSettings() {
             </TouchableOpacity>
           ))}
         </View>
+        {splitType === 'push_pull_legs' && (daysPerWeek === 4 || daysPerWeek === 5) && (
+          <View style={styles.infoNote}>
+            <Text style={styles.infoNoteText}>
+              Push / Pull / Legs uses a fixed rotation. At 4 or 5 days per week, some weeks won&apos;t be evenly distributed, but it balances out over time.
+            </Text>
+          </View>
+        )}
 
         <Text style={[styles.fieldLabel, { marginTop: SPACING.lg }]}>Length (weeks)</Text>
         <View style={styles.buttonRow}>
@@ -265,6 +272,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text_tertiary,
     marginBottom: SPACING.sm,
+  },
+  infoNote: {
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  infoNoteText: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    lineHeight: 18,
   },
   emptyText: {
     color: COLORS.text_secondary,

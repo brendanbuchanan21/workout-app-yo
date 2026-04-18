@@ -1,6 +1,6 @@
 # Iron Cadence
 
-A workout tracking and nutrition app built with React Native (Expo) and Node.js.
+A workout tracking app built with React Native (Expo) and Node.js, with nutrition-related code paths present but not currently used in production.
 
 ## Tech Stack
 
@@ -17,9 +17,11 @@ A workout tracking and nutrition app built with React Native (Expo) and Node.js.
 workout-app/
 ├── frontend/                 # Expo/React Native app
 │   ├── app/
-│   │   ├── (tabs)/           # Main tab screens (dashboard, train, nutrition, progress)
+│   │   ├── (tabs)/           # Main tab screens (home, train, progress, profile; nutrition route is present but hidden)
 │   │   ├── auth/             # Login, register, onboarding
-│   │   └── training/         # Training setup flow
+│   │   ├── training-setup.tsx # Training setup flow
+│   │   ├── plan-settings.tsx  # Active block settings
+│   │   └── my-program.tsx     # Program overview and history
 │   └── src/
 │       ├── components/       # Shared UI components
 │       ├── constants/        # Theme, training constants
@@ -28,7 +30,7 @@ workout-app/
 ├── backend/
 │   ├── src/
 │   │   ├── routes/           # Express route handlers
-│   │   ├── services/         # Business logic (workout generator, adaptive TDEE)
+│   │   ├── services/         # Business logic (workout generation, progression analysis, recommendations)
 │   │   ├── middleware/       # Auth middleware
 │   │   └── utils/            # Prisma client, JWT helpers
 │   └── prisma/
@@ -71,6 +73,7 @@ npm install
 echo 'DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workout_app"' > .env
 echo 'JWT_SECRET="your-secret-here"' >> .env
 echo 'JWT_REFRESH_SECRET="your-refresh-secret-here"' >> .env
+echo 'GOOGLE_CLIENT_ID="your-google-client-id"' >> .env
 
 # Run migrations and seed
 npm run db:migrate
@@ -100,7 +103,7 @@ Iron Cadence supports three training setup paths, all producing the same data mo
 
 ### Periodization
 
-- Volume progresses weekly within MEV/MRV guardrails
+- Volume progresses weekly within per-muscle floor/ceiling guardrails
 - RIR (Reps In Reserve) decreases across the training block
 - Final week is an automatic deload (50% volume)
 
@@ -119,10 +122,11 @@ All endpoints are prefixed with `/api`. Protected routes require `Authorization:
 | Area | Endpoints |
 |------|-----------|
 | Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/google` |
-| User | `GET /user/me`, `PUT /user/me` |
-| Training | Exercises CRUD, templates list/apply, training block management, session CRUD, set logging |
-| Nutrition | Phase management, meal logging |
-| Progress | Body weight tracking, weekly check-ins |
+| Onboarding | `POST /onboarding/complete` |
+| User | `GET /user/me`, `PUT /user/me`, `DELETE /user/me` |
+| Training | Under `/training`: exercises, templates, active block create/update/end, sessions, workouts, volume targets/guardrails/history, progression status, recommendations, activity |
+| Nutrition | Nutrition-related models and calculation code exist in the codebase, but they are not currently active in production and may support a future integration |
+| Progress | Body weight logging/history via `/weight` plus training-derived progress views from `/training/*` endpoints |
 
 ## Scripts
 

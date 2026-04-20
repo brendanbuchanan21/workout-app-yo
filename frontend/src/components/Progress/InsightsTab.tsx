@@ -12,7 +12,89 @@ interface InsightsTabProps {
   onJumpToMuscleVolume: (muscle: string) => void;
 }
 
-export default function InsightsTab({ onJumpToMuscleVolume }: InsightsTabProps) {
+const severityOrder: Record<string, number> = { warning: 0, info: 1, success: 2 };
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return count === 1 ? singular : plural;
+}
+
+function getInsightGroupKey(insight: Insight): string {
+  if (insight.groupKey) return insight.groupKey;
+
+  return [
+    insight.kind,
+    insight.severity,
+    insight.summary,
+    insight.qualifier || '',
+    insight.bullets.join('|'),
+  ].join('::');
+}
+
+function getGroupedLeadCopy(lead: Insight, relatedCount: number): Pick<Insight, 'title' | 'summary'> {
+  const totalCount = relatedCount + 1;
+
+  switch (lead.groupKey) {
+    case 'volume:declining':
+      return {
+        title: `Volume trending down across ${totalCount} muscle ${pluralize(totalCount, 'group')}`,
+        summary: `${lead.entityLabel || lead.title} is the clearest example, with ${relatedCount} other muscle ${pluralize(relatedCount, 'group')} showing the same pattern.`,
+      };
+    case 'volume:above-ceiling':
+      return {
+        title: `${totalCount} muscle ${pluralize(totalCount, 'group')} above ceiling`,
+        summary: `${lead.entityLabel || lead.title} is the clearest example, with ${relatedCount} other muscle ${pluralize(relatedCount, 'group')} also above their recoverable range.`,
+      };
+    case 'volume:below-floor':
+      return {
+        title: `${totalCount} muscle ${pluralize(totalCount, 'group')} below productive range`,
+        summary: `${lead.entityLabel || lead.title} is the clearest example, with ${relatedCount} other muscle ${pluralize(relatedCount, 'group')} also running under a productive dose.`,
+      };
+    default:
+      return {
+        title: lead.title,
+        summary: `${lead.summary} Also showing up in ${relatedCount} other ${pluralize(relatedCount, 'exercise')}.`,
+      };
+  }
+}
+
+function groupInsights(insights: Insight[]): Insight[] {
+  const grouped = new Map<string, Insight[]>();
+
+  for (const insight of insights) {
+    const key = getInsightGroupKey(insight);
+
+    const existing = grouped.get(key);
+    if (existing) existing.push(insight);
+    else grouped.set(key, [insight]);
+  }
+
+  const merged: Insight[] = [];
+
+  for (const bucket of grouped.values()) {
+    if (bucket.length === 1) {
+      merged.push(bucket[0]);
+      continue;
+    }
+
+    const [lead, ...rest] = bucket;
+    const relatedEntityLabels = rest
+      .map((item) => item.entityLabel || item.title)
+      .filter((label): label is string => !!label);
+    const groupedCopy = getGroupedLeadCopy(lead, relatedEntityLabels.length);
+
+    merged.push({
+      ...lead,
+      title: groupedCopy.title,
+      summary: groupedCopy.summary,
+      relatedEntityLabels,
+    });
+  }
+
+  merged.sort((a, b) => (severityOrder[a.severity] ?? 1) - (severityOrder[b.severity] ?? 1));
+  return merged;
+}
+
+export default function InsightsTab({ onJumpToMuscleVolume: _onJumpToMuscleVolume }: InsightsTabProps) {
   // Insights always analyze the last ~12 weeks, regardless of the Volume tab range.
   // Reuse the same query key as VolumeTab for a 3m range so the cache hits.
   const volumeHistoryQuery = useQuery({
@@ -54,8 +136,7 @@ export default function InsightsTab({ onJumpToMuscleVolume }: InsightsTabProps) 
     const progressionInsights = deriveProgressionInsights(progressions, phaseIntent);
 
     // Merge: warnings first, then info, then success
-    const all = [...volumeInsights, ...progressionInsights];
-    const severityOrder: Record<string, number> = { warning: 0, info: 1, success: 2 };
+    const all = groupInsights([...volumeInsights, ...progressionInsights]);
     all.sort((a, b) => (severityOrder[a.severity] ?? 1) - (severityOrder[b.severity] ?? 1));
     return all;
   }, [volumeHistoryQuery.data, guardrailsQuery.data, progressionQuery.data]);
@@ -87,8 +168,6 @@ export default function InsightsTab({ onJumpToMuscleVolume }: InsightsTabProps) 
         <InsightCard
           key={insight.id}
           insight={insight}
-          ctaLabel={`View ${insight.muscle.replace(/_/g, ' ')}`}
-          onPressCta={() => onJumpToMuscleVolume(insight.muscle)}
         />
       ))}
     </View>

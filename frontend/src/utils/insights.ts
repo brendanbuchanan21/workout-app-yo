@@ -19,9 +19,14 @@ export interface Insight {
   id: string;
   kind: InsightKind;
   muscle: string;
+  entityLabel?: string;
+  groupKey?: string;
   severity: InsightSeverity;
   title: string;
-  detail: string;
+  summary: string;
+  bullets: string[];
+  qualifier?: string;
+  relatedEntityLabels?: string[];
 }
 
 // Analysis window: last ~12 weeks regardless of the Volume tab's range selector.
@@ -86,9 +91,16 @@ function detectAboveCeiling(
     id: `above-ceiling:${muscle}`,
     kind: 'above-ceiling',
     muscle,
+    entityLabel: formatMuscle(muscle),
+    groupKey: 'volume:above-ceiling',
     severity: 'warning',
     title: `${formatMuscle(muscle)} above ceiling`,
-    detail: `${formatMuscle(muscle)} has been above the ceiling for ${streak} weeks. Watch for fatigue or overreach.`,
+    summary: `${formatMuscle(muscle)} has been above your recoverable range for ${streak} weeks.`,
+    bullets: [
+      'Fatigue can mask performance even when effort is high.',
+      'Consider reducing sets slightly for 1-2 weeks.',
+      'If recovery improves, ramp back up gradually.',
+    ],
   };
 }
 
@@ -105,9 +117,16 @@ function detectBelowFloor(
     id: `below-floor:${muscle}`,
     kind: 'below-floor',
     muscle,
+    entityLabel: formatMuscle(muscle),
+    groupKey: 'volume:below-floor',
     severity: 'info',
     title: `${formatMuscle(muscle)} below productive range`,
-    detail: `${formatMuscle(muscle)} has been below the productive range for ${streak} weeks. Consider adding sets.`,
+    summary: `${formatMuscle(muscle)} has been under your productive range for ${streak} weeks.`,
+    bullets: [
+      'Low dose can make progress inconsistent over time.',
+      'Add 1-2 sets and hold that level for a couple weeks.',
+      'Keep effort near your target RIR while increasing volume.',
+    ],
   };
 }
 
@@ -133,9 +152,16 @@ function detectDeclining(muscle: string, series: number[]): Insight | null {
     id: `declining:${muscle}`,
     kind: 'declining',
     muscle,
+    entityLabel: formatMuscle(muscle),
+    groupKey: 'volume:declining',
     severity: 'info',
     title: `${formatMuscle(muscle)} trending down`,
-    detail: `${formatMuscle(muscle)} volume is down ${pct}% over the last ${series.length} weeks.`,
+    summary: `${formatMuscle(muscle)} volume is down ${pct}% over the last ${series.length} weeks.`,
+    bullets: [
+      'Downward drift is often from missed sessions or removed sets.',
+      'Confirm this drop is intentional for your current phase.',
+      'If not intentional, bring weekly sets back toward target.',
+    ],
   };
 }
 

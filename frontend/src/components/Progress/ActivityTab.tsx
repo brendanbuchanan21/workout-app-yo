@@ -1,5 +1,5 @@
-import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Rect, Text as SvgText } from 'react-native-svg';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
@@ -12,13 +12,15 @@ interface ActivityTabProps {
   activity: Record<string, ActivityDay>;
 }
 
-const screenWidth = Dimensions.get('window').width;
+/** Do not shrink below this or the year grid becomes unreadable (was ~5px on phones). */
+const MIN_CELL = 12;
+const DAY_LABEL_COL = 22;
+const cellGap = 1;
 
 export default function ActivityTab({ activity }: ActivityTabProps) {
   const today = new Date();
   const totalWeeks = 52;
-  const cellSize = Math.floor((screenWidth - SPACING.xl * 2 - 30) / totalWeeks) - 1;
-  const cellGap = 1;
+  const cellSize = MIN_CELL;
 
   const startDate = new Date(today);
   startDate.setDate(startDate.getDate() - (totalWeeks * 7));
@@ -28,6 +30,7 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
 
   const cells: { date: string; count: number; col: number; row: number }[] = [];
   const monthLabels: { label: string; col: number }[] = [];
+  const monthSeparators: number[] = [];
   let lastMonth = -1;
 
   const cursor = new Date(startDate);
@@ -42,6 +45,7 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
       }
 
       if (row === 0 && cursor.getMonth() !== lastMonth) {
+        if (lastMonth !== -1) monthSeparators.push(col * (cellSize + cellGap) - cellGap / 2);
         lastMonth = cursor.getMonth();
         monthLabels.push({
           label: cursor.toLocaleDateString('en-US', { month: 'short' }),
@@ -55,6 +59,14 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
 
   const totalWorkouts = Object.values(activity).reduce((sum, d) => sum + d.count, 0);
   const activeDays = Object.keys(activity).length;
+  const recentMonthWorkouts = cells
+    .filter((cell) => cell.count > 0)
+    .filter((cell) => {
+      const date = new Date(cell.date);
+      const daysAgo = (today.getTime() - date.getTime()) / 86400000;
+      return daysAgo <= 30;
+    })
+    .reduce((sum, cell) => sum + cell.count, 0);
 
   let streak = 0;
   const streakCursor = new Date(today);
@@ -72,14 +84,17 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
     }
   }
 
-  const svgWidth = totalWeeks * (cellSize + cellGap);
-  const svgHeight = 7 * (cellSize + cellGap) + 15;
+  const gridWidth = totalWeeks * (cellSize + cellGap);
+  const gridHeight = 7 * (cellSize + cellGap);
+  const monthRowHeight = 18;
+  const todayDateKey = today.toISOString().split('T')[0];
 
   function getCellColor(count: number): string {
-    if (count === 0) return COLORS.bg_elevated;
-    if (count === 1) return 'rgba(232, 145, 45, 0.3)';
-    if (count === 2) return 'rgba(232, 145, 45, 0.55)';
-    return COLORS.accent_primary;
+    if (count === 0) return '#2B2B31';
+    if (count === 1) return '#8F5621';
+    if (count === 2) return '#C87424';
+    if (count === 3) return '#E8912D';
+    return '#FFB457';
   }
 
   return (
@@ -100,39 +115,82 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
       </View>
 
       <View style={styles.chartCard}>
-        <Text style={styles.chartTitle}>Workout Activity</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View>
-            <View style={{ height: 14, marginLeft: 0 }}>
-              <Svg width={svgWidth} height={14}>
-                {monthLabels.map((m, i) => (
-                  <SvgText
+        <View style={styles.chartHeader}>
+          <View style={styles.chartHeaderText}>
+            <Text style={styles.chartTitle}>Workout Activity</Text>
+            <Text style={styles.chartSummary}>
+              {totalWorkouts} sessions logged over the last year
+            </Text>
+          </View>
+          <View style={styles.chartBadge}>
+            <Text style={styles.chartBadgeValue}>{recentMonthWorkouts}</Text>
+            <Text style={styles.chartBadgeLabel}>Last 30d</Text>
+          </View>
+        </View>
+        <Text style={styles.chartHint}>Swipe to scan the full year</Text>
+        <View style={styles.heatRow}>
+          <View style={[styles.dayLabelCol, { width: DAY_LABEL_COL, height: monthRowHeight + gridHeight }]}>
+            <View style={{ height: monthRowHeight }} />
+            {['M', '', 'W', '', 'F', '', 'S'].map((label, row) => (
+              <View
+                key={`${label}-${row}`}
+                style={{ height: cellSize + cellGap, justifyContent: 'center' }}
+              >
+                <Text style={styles.dayLabel}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            style={styles.heatScroll}
+            contentContainerStyle={styles.heatScrollContent}
+          >
+            <View>
+              <View style={{ height: monthRowHeight }}>
+                <Svg width={gridWidth} height={monthRowHeight}>
+                  {monthLabels.map((m, i) => (
+                    <SvgText
+                      key={i}
+                      x={m.col * (cellSize + cellGap)}
+                      y={monthRowHeight - 5}
+                      fontSize={8}
+                      fill={COLORS.text_tertiary}
+                    >
+                      {m.label}
+                    </SvgText>
+                  ))}
+                </Svg>
+              </View>
+              <Svg width={gridWidth} height={gridHeight}>
+                {monthSeparators.map((x, i) => (
+                  <Line
+                    key={`separator-${i}`}
+                    x1={x}
+                    y1={0}
+                    x2={x}
+                    y2={gridHeight}
+                    stroke="rgba(255,255,255,0.05)"
+                    strokeWidth={1}
+                  />
+                ))}
+                {cells.map((cell, i) => (
+                  <Rect
                     key={i}
-                    x={m.col * (cellSize + cellGap)}
-                    y={10}
-                    fontSize={8}
-                    fill={COLORS.text_tertiary}
-                  >
-                    {m.label}
-                  </SvgText>
+                    x={cell.col * (cellSize + cellGap)}
+                    y={cell.row * (cellSize + cellGap)}
+                    width={cellSize}
+                    height={cellSize}
+                    rx={2}
+                    fill={getCellColor(cell.count)}
+                    stroke={cell.date === todayDateKey ? COLORS.text_primary : undefined}
+                    strokeWidth={cell.date === todayDateKey ? 1 : 0}
+                  />
                 ))}
               </Svg>
             </View>
-            <Svg width={svgWidth} height={7 * (cellSize + cellGap)}>
-              {cells.map((cell, i) => (
-                <Rect
-                  key={i}
-                  x={cell.col * (cellSize + cellGap)}
-                  y={cell.row * (cellSize + cellGap)}
-                  width={cellSize}
-                  height={cellSize}
-                  rx={2}
-                  fill={getCellColor(cell.count)}
-                />
-              ))}
-            </Svg>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
 
         <View style={styles.heatLegend}>
           <Text style={styles.heatLegendText}>Less</Text>
@@ -144,12 +202,6 @@ export default function ActivityTab({ activity }: ActivityTabProps) {
           ))}
           <Text style={styles.heatLegendText}>More</Text>
         </View>
-      </View>
-
-      <View style={styles.dayLabels}>
-        {['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((label, i) => (
-          <Text key={i} style={styles.dayLabel}>{label}</Text>
-        ))}
       </View>
     </>
   );
@@ -184,40 +236,90 @@ const styles = StyleSheet.create({
   chartCard: {
     backgroundColor: COLORS.bg_secondary,
     borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     marginBottom: SPACING.xl,
-    alignItems: 'center',
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    gap: SPACING.md,
+  },
+  chartHeaderText: {
+    flex: 1,
   },
   chartTitle: {
+    color: COLORS.text_primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  chartSummary: {
     color: COLORS.text_secondary,
     fontSize: 12,
-    fontWeight: '500',
-    marginBottom: SPACING.md,
+    lineHeight: 16,
+  },
+  chartBadge: {
+    minWidth: 64,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.bg_elevated,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    alignItems: 'center',
+  },
+  chartBadgeValue: {
+    color: COLORS.accent_light,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chartBadgeLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+  },
+  chartHint: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    marginBottom: SPACING.sm,
     alignSelf: 'flex-start',
+  },
+  heatRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: SPACING.sm,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#17171B',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  dayLabelCol: {
+    marginRight: SPACING.sm,
+  },
+  heatScroll: {
+    flex: 1,
+  },
+  heatScrollContent: {
+    paddingRight: SPACING.sm,
   },
   heatLegend: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 4,
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
   },
   heatLegendText: {
     color: COLORS.text_tertiary,
     fontSize: 9,
   },
   heatLegendCell: {
-    width: 10,
-    height: 10,
+    width: 11,
+    height: 11,
     borderRadius: 2,
-  },
-  dayLabels: {
-    position: 'absolute',
-    left: SPACING.xl,
-    top: 0,
-    display: 'none',
   },
   dayLabel: {
     color: COLORS.text_tertiary,

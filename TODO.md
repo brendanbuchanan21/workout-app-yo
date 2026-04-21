@@ -19,3 +19,5 @@
 [ ] We should offer a skip workout feature
 
 [ ] Allow a user to generate their own template
+
+[ ] Days per week in the settings tab doesn't really make much sense right now

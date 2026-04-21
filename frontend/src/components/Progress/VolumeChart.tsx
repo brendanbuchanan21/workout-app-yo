@@ -1,5 +1,5 @@
 import { View, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Polyline, Line, Rect, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
@@ -18,8 +18,8 @@ const screenWidth = Dimensions.get('window').width;
 
 export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: VolumeChartProps) {
   const chartWidth = screenWidth - SPACING.xl * 2 - SPACING.lg * 2;
-  const chartHeight = 200;
-  const padding = { top: 12, right: 10, bottom: 25, left: 42 };
+  const chartHeight = 204;
+  const padding = { top: 16, right: 10, bottom: 28, left: 40 };
   const innerW = chartWidth - padding.left - padding.right;
   const innerH = chartHeight - padding.top - padding.bottom;
 
@@ -38,6 +38,7 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
 
   const points = values.map((val, i) => `${xFor(i)},${yFor(val)}`).join(' ');
   const color = COLORS.accent_primary;
+  const lastIndex = values.length - 1;
 
   const bandTop = guardrail ? yFor(guardrail.ceiling) : 0;
   const bandBottom = guardrail ? yFor(guardrail.floor) : 0;
@@ -45,8 +46,8 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
   return (
     <View style={styles.chartCard}>
       <Svg width={chartWidth} height={chartHeight}>
-        {/* Gridlines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((frac, i) => {
+        {/* Minimal gridlines */}
+        {[0, 1].map((frac, i) => {
           const y = padding.top + (1 - frac) * innerH;
           return (
             <Line
@@ -57,45 +58,39 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
               y2={y}
               stroke={COLORS.border_subtle}
               strokeWidth={1}
+              opacity={frac === 0 ? 0.28 : 0.5}
             />
           );
         })}
 
-        {/* Guardrail band */}
+        {/* Guardrail guides */}
         {guardrail && (
           <>
-            <Rect
-              x={padding.left}
-              y={bandTop}
-              width={innerW}
-              height={Math.max(bandBottom - bandTop, 0)}
-              fill={COLORS.accent_subtle}
-            />
             <Line
               x1={padding.left}
               y1={bandTop}
               x2={chartWidth - padding.right}
               y2={bandTop}
-              stroke={COLORS.accent_primary}
+              stroke={COLORS.warning}
               strokeWidth={1}
-              strokeDasharray="2,3"
-              opacity={0.4}
+              strokeDasharray="2,5"
+              opacity={0.18}
             />
             <Line
               x1={padding.left}
               y1={bandBottom}
               x2={chartWidth - padding.right}
               y2={bandBottom}
-              stroke={COLORS.accent_primary}
+              stroke={COLORS.warning}
               strokeWidth={1}
-              strokeDasharray="2,3"
-              opacity={0.4}
+              strokeDasharray="2,5"
+              opacity={0.18}
             />
           </>
         )}
 
-        {/* Y-axis labels (top tick includes unit) */}
-        {[0, 0.5, 1].map((frac, i) => {
+        {/* Y-axis labels */}
+        {[0, 1].map((frac, i) => {
           const y = padding.top + (1 - frac) * innerH;
           const value = Math.round(maxY * frac);
           const label = frac === 1 ? `${value} sets` : `${value}`;
@@ -107,6 +102,7 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
               fontSize={9}
               fill={COLORS.text_tertiary}
               textAnchor="end"
+              opacity={frac === 0 ? 0.75 : 1}
             >
               {label}
             </SvgText>
@@ -118,7 +114,7 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
           const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           const n = volumeWeeks.length;
-          const labelCount = Math.min(5, n);
+          const labelCount = Math.min(4, n);
           const labels: { x: number; text: string }[] = [];
           let prevYear: number | null = null;
 
@@ -145,6 +141,7 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
               y={chartHeight - 4}
               fontSize={9}
               fill={COLORS.text_tertiary}
+              opacity={0.85}
               textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}
             >
               {text}
@@ -158,7 +155,7 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
             points={points}
             fill="none"
             stroke={color}
-            strokeWidth={3}
+            strokeWidth={2.25}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -166,12 +163,27 @@ export default function VolumeChart({ volumeWeeks, selectedMuscle, guardrail }: 
 
         {/* Data points */}
         {values.map((val, i) => (
+          i === lastIndex ? (
+            <Circle
+              key={`pt-halo-${i}`}
+              cx={xFor(i)}
+              cy={yFor(val)}
+              r={7}
+              fill={COLORS.accent_glow}
+            />
+          ) : null
+        ))}
+
+        {values.map((val, i) => (
           <Circle
             key={`pt-${i}`}
             cx={xFor(i)}
             cy={yFor(val)}
-            r={3}
-            fill={color}
+            r={i === lastIndex ? 4.5 : 2.5}
+            fill={COLORS.bg_secondary}
+            stroke={color}
+            strokeWidth={i === lastIndex ? 2.25 : 1.25}
+            opacity={i === lastIndex ? 1 : 0.9}
           />
         ))}
       </Svg>

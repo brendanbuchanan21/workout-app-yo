@@ -38,7 +38,9 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
         const d = new Date(session.date + 'T12:00:00');
         const sameYear = d.getFullYear() === new Date().getFullYear();
         const dateLabel = d.toLocaleDateString('en-US', {
-          month: 'short', day: 'numeric', ...(sameYear ? {} : { year: '2-digit' }),
+          month: 'short',
+          day: 'numeric',
+          ...(sameYear ? {} : { year: 'numeric' }),
         });
 
         return (
@@ -114,7 +116,8 @@ const styles = StyleSheet.create({
   sessionDate: {
     color: COLORS.text_tertiary,
     fontSize: 13,
-    width: 65,
+    width: 78,
+    marginRight: SPACING.sm
   },
   sessionBest: {
     color: COLORS.text_primary,

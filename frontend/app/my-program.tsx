@@ -1,18 +1,18 @@
 import { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { apiGet, apiPut } from '../src/utils/api';
+import { apiGet } from '../src/utils/api';
 import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
-import { SPLIT_LABELS, MUSCLE_LABELS } from '../src/constants/training';
+import { SPLIT_LABELS } from '../src/constants/training';
 import WeekTimeline from '../src/components/MyProgram/WeekTimeline';
 import WeeklyVolumeBreakdown from '../src/components/MyProgram/WeeklyVolumeBreakdown';
 import PastWorkoutsList, { PastWorkout } from '../src/components/MyProgram/PastWorkoutsList';
-import { Ionicons } from '@expo/vector-icons';
 
 interface ProgramDay {
   dayLabel: string;
@@ -46,10 +46,6 @@ export default function MyProgram() {
   const [weeklyVolume, setWeeklyVolume] = useState<WeeklyVolumeData | null>(null);
   const [pastWorkouts, setPastWorkouts] = useState<PastWorkout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reordering, setReordering] = useState(false);
-  const [orderDirty, setOrderDirty] = useState(false);
-  const [savingOrder, setSavingOrder] = useState(false);
-  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,7 +87,7 @@ export default function MyProgram() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={COLORS.accent_primary} />
         </View>
       </SafeAreaView>
@@ -102,11 +98,15 @@ export default function MyProgram() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back-outline" size={20} color={COLORS.accent_primary} />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
+          <View pointerEvents="none" style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>My Program</Text>
+          </View>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View style={styles.loadingWrap}>
           <Text style={styles.emptyText}>No active program</Text>
         </View>
       </SafeAreaView>
@@ -115,36 +115,6 @@ export default function MyProgram() {
 
   const splitLabel = SPLIT_LABELS[block.splitType] || block.splitType;
 
-  const moveDay = (index: number, direction: 'up' | 'down') => {
-    const newIdx = direction === 'up' ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= days.length) return;
-    const updated = [...days];
-    [updated[index], updated[newIdx]] = [updated[newIdx], updated[index]];
-    setDays(updated);
-    setOrderDirty(true);
-  };
-
-  const saveDayOrder = async () => {
-    setSavingOrder(true);
-    try {
-      const res = await apiPut('/training/program/reorder-days', {
-        days: days.map((d) => ({ dayLabel: d.dayLabel, muscleGroups: d.muscleGroups })),
-      });
-      if (res.ok) {
-        setOrderDirty(false);
-        setReordering(false);
-        Alert.alert('Saved', 'Day order updated');
-      } else {
-        const data = await res.json();
-        Alert.alert('Error', data.error || 'Failed to save');
-      }
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
-    } finally {
-      setSavingOrder(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -152,21 +122,18 @@ export default function MyProgram() {
           <Text style={styles.headerTitle}>My Program</Text>
         </View>
 
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back-outline" size={20} color={COLORS.accent_primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        <View style={{ flex: 1 }} />
-
-        {showWeeklySchedule ? (
-          <TouchableOpacity onPress={() => setReordering((v) => !v)}>
-            <Text style={styles.backText}>{reordering ? 'Done' : 'Reorder'}</Text>
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity onPress={() => router.push('/plan-settings')} style={styles.headerActionButton}>
+          <Text style={styles.headerEditText}>Edit</Text>
+          <Ionicons name="create-outline" size={18} color={COLORS.accent_primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Overview card */}
         <View style={styles.overviewCard}>
           <View style={styles.overviewRow}>
             <View style={styles.overviewItem}>
@@ -188,9 +155,17 @@ export default function MyProgram() {
               <Text style={styles.overviewLabel}>Setup</Text>
             </View>
           </View>
+
+          <View style={styles.overviewDivider} />
+          <TouchableOpacity
+            onPress={() => router.push('/weekly-plan')}
+            style={styles.weeklyPlanButton}
+          >
+            <Text style={styles.weeklyPlanText}>View Weekly Plan</Text>
+            <Ionicons name="chevron-forward" size={18} color={COLORS.accent_primary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Week progress timeline */}
         <Text style={styles.sectionTitle}>Week {currentWeek} Progress</Text>
         <View style={styles.timelineCard}>
           <WeekTimeline
@@ -201,7 +176,6 @@ export default function MyProgram() {
           />
         </View>
 
-        {/* Volume progress across program weeks */}
         {weeklyVolume && (
           <WeeklyVolumeBreakdown
             lengthWeeks={weeklyVolume.lengthWeeks}
@@ -211,100 +185,8 @@ export default function MyProgram() {
           />
         )}
 
-        {/* Past workouts */}
         <Text style={styles.sectionTitle}>Past Workouts</Text>
         <PastWorkoutsList workouts={pastWorkouts} />
-
-        {/* Weekly schedule */}
-        {showWeeklySchedule ? (
-          <>   
-              <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <Text style={styles.sectionTitle}>Weekly Schedule</Text>
-                <Ionicons name='chevron-down' color={COLORS.text_secondary} size={20} onPress={() => setShowWeeklySchedule(false)}/>
-              </View>
-            {reordering && orderDirty && (
-              <TouchableOpacity
-                style={styles.saveOrderButton}
-                onPress={saveDayOrder}
-                disabled={savingOrder}
-              >
-                <Text style={styles.saveOrderText}>{savingOrder ? 'Saving...' : 'Save Order'}</Text>
-              </TouchableOpacity>
-            )}
-            {days.length > 0 ? (
-              days.map((day, i) => (
-                <TouchableOpacity
-                  key={day.dayLabel}
-                  style={[styles.dayCard, day.completedThisWeek && styles.dayCardCompleted]}
-                  onPress={reordering ? undefined : () => router.push({ pathname: '/edit-day', params: { dayLabel: day.dayLabel } })}
-                  activeOpacity={reordering ? 1 : 0.7}
-                >
-                  <View style={styles.dayCardHeader}>
-                    {reordering && (
-                      <View style={styles.reorderControls}>
-                        <TouchableOpacity onPress={() => moveDay(i, 'up')} disabled={i === 0}>
-                          <Text style={[styles.reorderArrow, i === 0 && styles.reorderDisabled]}>▲</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => moveDay(i, 'down')} disabled={i === days.length - 1}>
-                          <Text style={[styles.reorderArrow, i === days.length - 1 && styles.reorderDisabled]}>▼</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.dayCardTitle}>{day.dayLabel}</Text>
-                      <Text style={styles.dayCardMuscles}>
-                        {day.muscleGroups.map((m) => MUSCLE_LABELS[m] || m).join(', ')}
-                      </Text>
-                    </View>
-                    {!reordering && <Text style={styles.editArrow}>›</Text>}
-                  </View>
-                  {!reordering && day.exercises.length > 0 && (
-                    <View style={styles.exerciseList}>
-                      {day.exercises.map((ex, j) => (
-                        <View key={j} style={styles.exerciseRow}>
-                          <Text style={styles.exerciseName}>{ex.exerciseName}</Text>
-                          <Text style={styles.exerciseSets}>{ex.sets} sets</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))
-            ) : (
-              <Text style={styles.emptyText}>
-                {block.setupMethod === 'build_as_you_go'
-                  ? 'Exercises are chosen each session'
-                  : 'No schedule data available'}
-              </Text>
-            )}
-          </>
-        ) : (
-          <TouchableOpacity
-          style={styles.settingsButton} 
-          onPress={() => setShowWeeklySchedule(true)}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-              <Text style={styles.settingsButtonText}>
-              View Weekly Plan
-            </Text>
-            <Ionicons name='chevron-forward' size={20} color={COLORS.accent_primary}/>
-            </View>
-          </TouchableOpacity>
-        )}
-
-
-        {/* Plan Settings link */}
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => router.push('/plan-settings')}
-        >
-          <Text style={styles.settingsButtonText}>Plan Settings</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -315,16 +197,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg_primary,
   },
-  header: {
-    flexDirection: 'row',
+  loadingWrap: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  header: {
+    justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
+    minHeight: 48,
   },
   headerTitleWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    left: SPACING.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  headerActionButton: {
+    position: 'absolute',
+    right: SPACING.xl,
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  headerEditText: {
+    color: COLORS.accent_primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   backText: {
     color: COLORS.accent_primary,
@@ -349,11 +257,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
-    gap: SPACING.md,
   },
   overviewRow: {
     flexDirection: 'row',
     gap: SPACING.md,
+    marginBottom: SPACING.md,
   },
   overviewItem: {
     flex: 1,
@@ -370,6 +278,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  overviewDivider: {
+    height: 1,
+    backgroundColor: COLORS.border_subtle,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  weeklyPlanButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: SPACING.xs,
+  },
+  weeklyPlanText: {
+    color: COLORS.accent_light,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   sectionTitle: {
     color: COLORS.text_secondary,
     fontSize: 14,
@@ -385,100 +310,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     marginBottom: SPACING.xl,
   },
-  dayCard: {
-    backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    padding: SPACING.lg,
-    marginBottom: SPACING.sm,
-  },
-  dayCardCompleted: {
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.success,
-  },
-  dayCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dayCardTitle: {
-    color: COLORS.text_primary,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  dayCardMuscles: {
-    color: COLORS.text_secondary,
-    fontSize: 13,
-  },
-  editArrow: {
-    color: COLORS.text_tertiary,
-    fontSize: 22,
-    fontWeight: '300',
-  },
-  reorderControls: {
-    marginRight: SPACING.md,
-    gap: 4,
-  },
-  reorderArrow: {
-    color: COLORS.accent_primary,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  reorderDisabled: {
-    opacity: 0.2,
-  },
-  saveOrderButton: {
-    backgroundColor: COLORS.accent_primary,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.sm,
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  saveOrderText: {
-    color: COLORS.text_on_accent,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  exerciseList: {
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border_subtle,
-    gap: 4,
-  },
-  exerciseRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exerciseName: {
-    color: COLORS.text_secondary,
-    fontSize: 13,
-    flex: 1,
-  },
-  exerciseSets: {
-    color: COLORS.text_tertiary,
-    fontSize: 12,
-  },
   emptyText: {
     color: COLORS.text_tertiary,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: SPACING.lg,
-  },
-  settingsButton: {
-    marginTop: SPACING.xl,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-  },
-  settingsButtonText: {
-    color: COLORS.accent_light,
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

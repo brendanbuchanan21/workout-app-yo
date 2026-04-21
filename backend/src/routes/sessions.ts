@@ -327,12 +327,16 @@ router.get('/program/days', requireAuth, async (req: AuthRequest, res: Response)
       completedThisWeek.map((s) => [s.dayLabel, s.completedAt])
     );
 
-    // For each day label, find the most recent session to get exercise definitions
+    // For each day label, read the current/future planned session that defines the program.
     const days = await Promise.all(
       dayLabels.map(async (dl, i) => {
         const session = await prisma.workoutSession.findFirst({
-          where: { trainingBlockId: block.id, dayLabel: dl },
-          orderBy: { weekNumber: 'desc' },
+          where: {
+            trainingBlockId: block.id,
+            dayLabel: dl,
+            weekNumber: { gte: block.currentWeek },
+          },
+          orderBy: [{ weekNumber: 'asc' }, { date: 'asc' }],
           include: {
             exercises: {
               orderBy: { orderIndex: 'asc' },
@@ -392,6 +396,15 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
       return;
     }
 
+    const customDays = block.customDays as { dayLabel: string; muscleGroups: string[] }[] | undefined;
+    const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, customDays);
+    const dayIdx = dayLabels.indexOf(dayLabel);
+
+    if (dayIdx === -1) {
+      res.status(400).json({ error: 'Unknown program day' });
+      return;
+    }
+
     // Find all planned sessions for this day label (current week onward)
     const plannedSessions = await prisma.workoutSession.findMany({
       where: {
@@ -401,6 +414,38 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
         weekNumber: { gte: block.currentWeek },
       },
     });
+
+    const plannedByWeek = new Map(plannedSessions.map((session) => [session.weekNumber, session]));
+
+    // Materialize any missing planned sessions so a planned day exists before the user starts it.
+    for (let week = block.currentWeek; week <= block.lengthWeeks; week++) {
+      if (plannedByWeek.has(week)) continue;
+
+      const existingSession = await prisma.workoutSession.findFirst({
+        where: {
+          trainingBlockId: block.id,
+          dayLabel,
+          weekNumber: week,
+        },
+        select: { id: true },
+      });
+
+      if (existingSession) continue;
+
+      const session = await prisma.workoutSession.create({
+        data: {
+          trainingBlockId: block.id,
+          userId: req.userId!,
+          date: new Date(block.startDate.getTime() + ((week - 1) * 7 + dayIdx) * 86400000),
+          weekNumber: week,
+          dayLabel,
+          status: 'planned',
+        },
+      });
+
+      plannedSessions.push(session);
+      plannedByWeek.set(week, session);
+    }
 
     // Update each planned session: delete old exercises, create new ones
     for (const session of plannedSessions) {

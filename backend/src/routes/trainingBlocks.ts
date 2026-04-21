@@ -2,9 +2,56 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { getEffectiveGuardrails } from '../services/workoutGenerator';
+import { getDayLabels, getEffectiveGuardrails } from '../services/workoutGenerator';
 
 const router = Router();
+
+async function createPlannedSessionsForBlock(
+  block: {
+    id: string;
+    userId: string;
+    startDate: Date;
+    lengthWeeks: number;
+    currentWeek: number;
+    splitType: string;
+    daysPerWeek: number;
+    customDays: unknown;
+    setupMethod: string | null;
+  }
+) {
+  if (block.setupMethod === 'build_as_you_go') return;
+
+  const customDays = block.customDays as { dayLabel: string; muscleGroups: string[] }[] | undefined;
+  const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, customDays);
+
+  for (let week = block.currentWeek; week <= block.lengthWeeks; week++) {
+    for (let dayIdx = 0; dayIdx < dayLabels.length; dayIdx++) {
+      const dayLabel = dayLabels[dayIdx];
+
+      const existingSession = await prisma.workoutSession.findFirst({
+        where: {
+          trainingBlockId: block.id,
+          weekNumber: week,
+          dayLabel,
+        },
+        select: { id: true },
+      });
+
+      if (existingSession) continue;
+
+      await prisma.workoutSession.create({
+        data: {
+          trainingBlockId: block.id,
+          userId: block.userId,
+          date: new Date(block.startDate.getTime() + ((week - 1) * 7 + dayIdx) * 86400000),
+          weekNumber: week,
+          dayLabel,
+          status: 'planned',
+        },
+      });
+    }
+  }
+}
 
 // Starting volume per muscle group by experience level
 export function getStartingVolume(experienceLevel: string): Record<string, number> {
@@ -83,6 +130,8 @@ router.post('/block/create', requireAuth, async (req: AuthRequest, res: Response
         targetWeightChangePerWeek: data.targetWeightChangePerWeek,
       },
     });
+
+    await createPlannedSessionsForBlock(trainingBlock);
 
     res.status(201).json({ trainingBlock });
   } catch (error) {
@@ -212,7 +261,7 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
       data: updateData,
     });
 
-    // Delete future planned sessions when split structure changes
+    // Rebuild future planned sessions when the structure changes.
     if (structureChanged) {
       await prisma.workoutSession.deleteMany({
         where: {
@@ -221,6 +270,20 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
           weekNumber: { gte: block.currentWeek },
         },
       });
+
+      await createPlannedSessionsForBlock(updated);
+    } else if (data.lengthWeeks !== undefined) {
+      await prisma.workoutSession.deleteMany({
+        where: {
+          trainingBlockId: block.id,
+          status: 'planned',
+          weekNumber: { gt: data.lengthWeeks },
+        },
+      });
+
+      if (data.lengthWeeks > block.lengthWeeks && updated.setupMethod === 'plan') {
+        await createPlannedSessionsForBlock(updated);
+      }
     }
 
     res.json({ trainingBlock: updated });

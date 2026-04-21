@@ -72,16 +72,18 @@ export function useTrainSession() {
           (s: any) => s.weekNumber === todayData.weekNumber && s.dayLabel === todayData.dayLabel
         ) || [];
 
-        if (todaySessions.length > 0 && todaySessions[0].exercises?.length > 0) {
-          setSession(todaySessions[0]);
+        const todaysSession = todaySessions[0];
+
+        if (todaysSession && todaysSession.exercises?.length > 0) {
+          setSession(todaysSession);
           setBuildMode(false);
           setChoosingDay(false);
-          // Auto-resume only if there are logged sets (in-progress workout)
-          const hasLoggedSets = todaySessions[0].exercises.some(
+          const isStarted = todaysSession.status === 'in_progress';
+          const hasLoggedSets = todaysSession.exercises.some(
             (e: any) => e.sets?.some((s: any) => s.completed)
           );
-          setWorkoutActive(hasLoggedSets);
-          if (hasLoggedSets && !workoutStartTime) {
+          setWorkoutActive(isStarted || hasLoggedSets);
+          if ((isStarted || hasLoggedSets) && !workoutStartTime) {
             setWorkoutStartTime(Date.now());
           }
           if (catalog.length === 0) {
@@ -487,18 +489,39 @@ export function useTrainSession() {
   };
 
   const beginWorkout = async () => {
+    let activeSession = session;
+
+    if (!activeSession && today?.setupMethod !== 'build_as_you_go') {
+      Alert.alert('No workout found', 'Set up this day in My Program before starting it.');
+      return;
+    }
+
     // For template/plan sessions, apply autoregulation prescription before starting
-    if (session?.id && today?.setupMethod !== 'build_as_you_go') {
+    if (activeSession?.id && today?.setupMethod !== 'build_as_you_go') {
       try {
-        const res = await apiPost(`/training/session/${session.id}/apply-prescription`, {});
+        const res = await apiPost(`/training/session/${activeSession.id}/apply-prescription`, {});
         if (res.ok) {
           const data = await res.json();
-          if (data.applied) {
-            setSession(data.session);
+          activeSession = data.session;
+          setSession(data.session);
+
+          if (!data.applied) {
+            const startRes = await apiPut(`/training/session/${activeSession.id}/start`, {});
+            if (!startRes.ok) {
+              const err = await startRes.json();
+              throw new Error(err.error || 'Failed to start workout');
+            }
+            const startData = await startRes.json();
+            activeSession = {
+              ...activeSession,
+              ...startData.session,
+            };
+            setSession((prev: any) => prev ? { ...prev, ...startData.session } : startData.session);
           }
         }
-      } catch (err) {
-        console.error('Apply prescription error:', err);
+      } catch (err: any) {
+        Alert.alert('Error', err.message || 'Failed to start workout');
+        return;
       }
     }
     setWorkoutActive(true);

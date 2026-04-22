@@ -139,6 +139,7 @@ async function getExerciseSessions(
   blockId: string,
   exerciseName: string,
   catalogId: string | null,
+  options: { since?: Date } = {},
 ): Promise<SessionSets[]> {
   const whereClause: any = {
     workoutSession: {
@@ -147,6 +148,9 @@ async function getExerciseSessions(
       completedAt: { not: null },
     },
   };
+  if (options.since) {
+    whereClause.workoutSession.completedAt.gte = options.since;
+  }
   if (catalogId) {
     whereClause.catalogId = catalogId;
   } else {
@@ -396,11 +400,16 @@ function classifyExercise(
 export async function analyzeProgression(
   userId: string,
   blockId: string,
+  options: { since?: Date } = {},
 ): Promise<ExerciseProgression[]> {
   // Get distinct exercises in this block
   const exercises = await prisma.exercise.findMany({
     where: {
-      workoutSession: { trainingBlockId: blockId, userId, completedAt: { not: null } },
+      workoutSession: {
+        trainingBlockId: blockId,
+        userId,
+        completedAt: options.since ? { not: null, gte: options.since } : { not: null },
+      },
     },
     select: {
       exerciseName: true,
@@ -413,7 +422,7 @@ export async function analyzeProgression(
   const results: ExerciseProgression[] = [];
 
   for (const ex of exercises) {
-    const sessions = await getExerciseSessions(userId, blockId, ex.exerciseName, ex.catalogId);
+    const sessions = await getExerciseSessions(userId, blockId, ex.exerciseName, ex.catalogId, options);
 
     if (sessions.length < 4) continue;
 

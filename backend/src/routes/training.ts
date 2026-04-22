@@ -9,6 +9,7 @@ import workoutRoutes from './workouts';
 import volumeRoutes from './volume';
 import progressionRoutes from './progression';
 import recommendationRoutes from './recommendations';
+import muscleDevelopmentRoutes from './muscleDevelopment';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.use(workoutRoutes);
 router.use(volumeRoutes);
 router.use(progressionRoutes);
 router.use(recommendationRoutes);
+router.use(muscleDevelopmentRoutes);
 
 // Workout activity dates for heat map (last 365 days)
 router.get('/activity', requireAuth, async (req: AuthRequest, res: Response) => {

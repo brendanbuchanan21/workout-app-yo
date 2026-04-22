@@ -2,6 +2,8 @@
 
 
 [ ] UI refactor screen-by-screen using docs/ui-refactor-brief.md
+[ ] Progress shell refactor using docs/progress-shell-refactor.md
+[ ] Implement muscle development signals using docs/muscle-development-signal-spec.md
 [ ] Implement the google auth
 [ ] Improve the size of the activity heat map chart. It's too small right now
 [ ] Improve the UI of the entire application. Think icons and maybe diagrams. 
@@ -22,3 +24,7 @@
 [ ] Allow a user to generate their own template
 
 [ ] Days per week in the settings tab doesn't really make much sense right now
+
+[ ] introduce playwrite alternative
+
+[ ] end-to-end testing

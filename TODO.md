@@ -1,6 +1,7 @@
 
 
 
+[ ] UI refactor screen-by-screen using docs/ui-refactor-brief.md
 [ ] Implement the google auth
 [ ] Improve the size of the activity heat map chart. It's too small right now
 [ ] Improve the UI of the entire application. Think icons and maybe diagrams. 

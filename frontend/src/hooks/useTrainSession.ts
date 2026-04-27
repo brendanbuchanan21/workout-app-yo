@@ -491,8 +491,41 @@ export function useTrainSession() {
   const beginWorkout = async () => {
     let activeSession = session;
 
-    if (!activeSession && today?.setupMethod !== 'build_as_you_go') {
+    const allowStartWithoutPresetSession =
+      today?.setupMethod === 'build_as_you_go' || today?.splitType === 'custom';
+
+    if (!activeSession && !allowStartWithoutPresetSession) {
       Alert.alert('No workout found', 'Set up this day in My Program before starting it.');
+      return;
+    }
+
+    // Custom split may not have a WorkoutSession until the user builds the day (same UX as build-as-you-go).
+    if (
+      !activeSession &&
+      today?.splitType === 'custom' &&
+      today.setupMethod !== 'build_as_you_go'
+    ) {
+      try {
+        if (catalog.length === 0) {
+          const catalogRes = await apiGet('/training/exercises');
+          if (catalogRes.ok) {
+            const catalogData = await catalogRes.json();
+            setCatalog(catalogData.exercises);
+          }
+        }
+      } catch (err) {
+        console.error('Catalog fetch error:', err);
+      }
+      if (today.dayOptions && today.dayOptions.length > 1) {
+        setChoosingDay(true);
+        setChosenDay(null);
+        setBuildMode(false);
+      } else {
+        setBuildMode(true);
+        setChoosingDay(false);
+      }
+      setWorkoutActive(true);
+      setWorkoutStartTime(Date.now());
       return;
     }
 

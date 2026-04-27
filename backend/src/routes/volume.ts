@@ -8,6 +8,7 @@ import {
   getEffectiveGuardrails,
   getPhaseAdjustedGuardrails,
 } from '../services/workoutGenerator';
+import { materializeFuturePlannedSessions } from '../services/plannedWorkoutMaterializer';
 
 const router = Router();
 
@@ -53,6 +54,8 @@ router.put('/volume-targets', requireAuth, async (req: AuthRequest, res: Respons
       where: { id: block.id },
       data: { volumeTargets },
     });
+
+    await materializeFuturePlannedSessions(updated);
 
     res.json({ trainingBlock: updated, guardrails: effectiveGuardrails });
   } catch (error) {

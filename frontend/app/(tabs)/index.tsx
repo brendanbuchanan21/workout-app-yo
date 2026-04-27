@@ -9,19 +9,8 @@ import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 import RecentPRs from '../../src/components/Home/RecentPRs';
 import RecommendationPanel from '../../src/components/Home/RecommendationPanel';
-import { PREvent } from '../../src/types/training';
+import { PREvent, TodayContext, TodayOverview } from '../../src/types/training';
 // NUTRITION_HIDDEN: MacroRing import removed
-
-interface TodayContext {
-  trainingBlockId: string;
-  weekNumber: number;
-  dayIndex: number;
-  dayLabel: string;
-  suggestedMuscleGroups: string[];
-  targetRir: number;
-  splitType: string;
-  setupMethod: string | null;
-}
 
 interface ActiveTrainingBlock {
   id: string;
@@ -65,12 +54,21 @@ export default function Dashboard() {
     },
   });
 
-  const todayQuery = useQuery({
+  const todayQuery = useQuery<TodayContext | null>({
     queryKey: ['training', 'today'],
     queryFn: async () => {
       const res = await apiGet('/training/today');
       if (!res.ok) return null;
-      return res.json();
+      return (await res.json()) as TodayContext;
+    },
+  });
+
+  const todayOverviewQuery = useQuery<TodayOverview | null>({
+    queryKey: ['training', 'today', 'overview'],
+    queryFn: async () => {
+      const res = await apiGet('/training/today/overview');
+      if (!res.ok) return null;
+      return (await res.json()) as TodayOverview;
     },
   });
 
@@ -98,15 +96,21 @@ export default function Dashboard() {
     userQuery.refetch();
     blockQuery.refetch();
     todayQuery.refetch();
+    todayOverviewQuery.refetch();
     prFeedQuery.refetch();
     recsQuery.refetch();
   });
 
-  const loading = userQuery.isLoading || blockQuery.isLoading || todayQuery.isLoading;
+  const loading =
+    userQuery.isLoading ||
+    blockQuery.isLoading ||
+    todayQuery.isLoading ||
+    todayOverviewQuery.isLoading;
   const trainingBlock: ActiveTrainingBlock | null = blockQuery.data?.trainingBlock ?? null;
   const today: TodayContext | null = todayQuery.data ?? null;
   const recentPRs: PREvent[] = prFeedQuery.data ?? [];
   const recommendations = recsQuery.data ?? [];
+  const todayOverview: TodayOverview | null = todayOverviewQuery.data ?? null;
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -124,8 +128,7 @@ export default function Dashboard() {
 
     if (setupMethod === 'build_as_you_go') {
       if (hasPlannedSession) {
-        const session = todaySessions[0];
-        const exerciseCount = session.exercises?.length || 0;
+        const exerciseCount = todayOverview?.exercises.length || todaySessions[0]?.exercises?.length || 0;
         return {
           title: today.dayLabel,
           subtitle: `${exerciseCount} exercises · RIR: ${today.targetRir}`,
@@ -142,11 +145,12 @@ export default function Dashboard() {
 
     // Template or plan setup
     if (hasPlannedSession) {
-      const session = todaySessions[0];
-      const exerciseCount = session.exercises?.length || 0;
+      const sets = todayOverview?.totalWorkoutSets
+        ?? todaySessions[0]?.exercises?.reduce((acc: number, e: any) => acc + (e.sets?.length ?? 0), 0)
+        ?? 0;
       return {
         title: today.dayLabel,
-        subtitle: `${exerciseCount} exercises · RIR: ${today.targetRir}`,
+        subtitle: `Total Sets: ${sets} · RIR: ${today.targetRir}`,
         isEmpty: false,
       };
     }
@@ -210,6 +214,18 @@ export default function Dashboard() {
               />
             </View>
           </View>
+
+          {todayOverview && (
+            <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm }}>
+              {todayOverview.exercises.map((e, index) => (
+                <View key={index} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SPACING.sm}}> 
+                  <View style={styles.phaseDot} />
+                  <Text style={{ color: COLORS.text_primary }}>{e.exerciseName}</Text>
+                  <Text style={{ color: COLORS.text_secondary }}>{e.sets} sets</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
         </TouchableOpacity>
 
@@ -306,6 +322,7 @@ const styles = StyleSheet.create({
   workoutSubtext: {
     color: COLORS.text_tertiary,
     fontSize: 12,
+    marginTop: SPACING.sm,
   },
   playButton: {
     width: 40,

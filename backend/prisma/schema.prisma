@@ -203,7 +203,7 @@ model Exercise {
   id               String   @id @default(uuid())
   workoutSessionId String
   workoutSession   WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  catalogId        String?
+  catalogId        String
   orderIndex       Int
   exerciseName     String
   muscleGroup      String

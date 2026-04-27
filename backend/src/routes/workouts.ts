@@ -5,6 +5,7 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getRirForWeek } from '../services/workoutGenerator';
 import { computeWorkoutSummary } from '../services/workoutSummary';
 import { prescribeSession } from '../services/sessionAutoregulation';
+import { resolveExerciseCatalogId } from '../services/exerciseCatalogResolver';
 
 const router = Router();
 
@@ -297,11 +298,16 @@ router.post('/session/:id/exercise', requireAuth, async (req: AuthRequest, res: 
       : 3;
 
     const maxOrder = Math.max(...session.exercises.map((e) => e.orderIndex), -1);
+    const catalogId = await resolveExerciseCatalogId({
+      userId: req.userId!,
+      exerciseName: data.exerciseName,
+      catalogId: data.catalogId,
+    });
 
     const exercise = await prisma.exercise.create({
       data: {
         workoutSessionId: sessionId,
-        catalogId: data.catalogId || null,
+        catalogId,
         orderIndex: maxOrder + 1,
         exerciseName: data.exerciseName,
         muscleGroup: data.muscleGroup,

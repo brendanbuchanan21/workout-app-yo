@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import prisma from '../utils/prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getRirForWeek } from '../services/workoutGenerator';
+import { resolveExerciseCatalogId } from '../services/exerciseCatalogResolver';
 
 const router = Router();
 
@@ -126,18 +127,15 @@ router.post('/templates/:id/apply', requireAuth, async (req: AuthRequest, res: R
         for (let exIdx = 0; exIdx < day.exercises.length; exIdx++) {
           const exDef = day.exercises[exIdx];
 
-          // Look up catalog entry
-          const catalogEntry = await prisma.exerciseCatalog.findFirst({
-            where: {
-              name: exDef.exerciseName,
-              OR: [{ isDefault: true }, { userId: req.userId! }],
-            },
+          const catalogId = await resolveExerciseCatalogId({
+            userId: req.userId!,
+            exerciseName: exDef.exerciseName,
           });
 
           const exercise = await prisma.exercise.create({
             data: {
               workoutSessionId: session.id,
-              catalogId: catalogEntry?.id || null,
+              catalogId,
               orderIndex: exIdx,
               exerciseName: exDef.exerciseName,
               muscleGroup: exDef.muscleGroup,

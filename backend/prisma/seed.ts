@@ -52,6 +52,7 @@ const exercises: ExerciseSeed[] = [
   // ===== HAMSTRINGS =====
   { name: 'Romanian Deadlift', primaryMuscle: 'hamstrings', secondaryMuscles: ['glutes', 'back'], equipment: 'barbell', movementType: 'compound', repRangeLow: 6, repRangeHigh: 10 },
   { name: 'Lying Leg Curl', primaryMuscle: 'hamstrings', secondaryMuscles: [], equipment: 'machine', movementType: 'isolation', repRangeLow: 8, repRangeHigh: 12 },
+  { name: 'Leg Curl', primaryMuscle: 'hamstrings', secondaryMuscles: [], equipment: 'machine', movementType: 'isolation', repRangeLow: 8, repRangeHigh: 12 },
   { name: 'Seated Leg Curl', primaryMuscle: 'hamstrings', secondaryMuscles: [], equipment: 'machine', movementType: 'isolation', repRangeLow: 8, repRangeHigh: 12 },
   { name: 'Dumbbell Romanian Deadlift', primaryMuscle: 'hamstrings', secondaryMuscles: ['glutes', 'back'], equipment: 'dumbbell', movementType: 'compound', repRangeLow: 8, repRangeHigh: 12 },
   { name: 'Good Morning', primaryMuscle: 'hamstrings', secondaryMuscles: ['glutes', 'back'], equipment: 'barbell', movementType: 'compound', repRangeLow: 8, repRangeHigh: 12 },
@@ -61,6 +62,7 @@ const exercises: ExerciseSeed[] = [
 
   // ===== SIDE DELTS =====
   { name: 'Lateral Raise', primaryMuscle: 'side_delts', secondaryMuscles: [], equipment: 'dumbbell', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
+  { name: 'Dumbbell Lateral Raise', primaryMuscle: 'side_delts', secondaryMuscles: [], equipment: 'dumbbell', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Cable Lateral Raise', primaryMuscle: 'side_delts', secondaryMuscles: [], equipment: 'cable', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Machine Lateral Raise', primaryMuscle: 'side_delts', secondaryMuscles: [], equipment: 'machine', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Upright Row', primaryMuscle: 'side_delts', secondaryMuscles: ['traps'], equipment: 'barbell', movementType: 'compound', repRangeLow: 8, repRangeHigh: 12 },
@@ -71,6 +73,7 @@ const exercises: ExerciseSeed[] = [
 
   // ===== REAR DELTS =====
   { name: 'Face Pull', primaryMuscle: 'rear_delts', secondaryMuscles: ['traps'], equipment: 'cable', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
+  { name: 'Reverse Flye', primaryMuscle: 'rear_delts', secondaryMuscles: [], equipment: 'dumbbell', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Reverse Pec Deck', primaryMuscle: 'rear_delts', secondaryMuscles: [], equipment: 'machine', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Dumbbell Reverse Flye', primaryMuscle: 'rear_delts', secondaryMuscles: [], equipment: 'dumbbell', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },
   { name: 'Cable Reverse Flye', primaryMuscle: 'rear_delts', secondaryMuscles: [], equipment: 'cable', movementType: 'isolation', repRangeLow: 12, repRangeHigh: 20 },

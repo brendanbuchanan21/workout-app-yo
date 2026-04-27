@@ -18,6 +18,17 @@ export interface TodayContext {
   volumeTargets: Record<string, number>;
 }
 
+export interface TodayOverviewExercise {
+  exerciseName: string;
+  sets: number;
+}
+
+export interface TodayOverview {
+  dayLabel: string;
+  totalWorkoutSets: number;
+  exercises: TodayOverviewExercise[];
+}
+
 export interface CatalogExercise {
   id: string;
   name: string;

@@ -3,7 +3,7 @@ import { v4 as uuid } from 'uuid';
 
 const prisma = new PrismaClient();
 
-const USER_ID = '2a486c80-6000-4064-bf9b-0ba83fc983bd';
+const USER_EMAIL = 'brendanbuchanan21@gmail.com';
 
 // PPL split: Push A, Pull A, Legs A, Push B, Pull B, Legs B
 // We'll generate ~9 months (roughly 39 weeks) of training, 6 days/week
@@ -85,7 +85,27 @@ function roundTo(val: number, step: number): number {
   return Math.round(val / step) * step;
 }
 
+function startOfWeek(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  const day = result.getDay(); // 0 = Sunday
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  result.setDate(result.getDate() + diffToMonday);
+  return result;
+}
+
 async function main() {
+  const user = await prisma.user.findUnique({
+    where: { email: USER_EMAIL },
+    select: { id: true },
+  });
+
+  if (!user) {
+    throw new Error(`No user found for Brendan seed email "${USER_EMAIL}"`);
+  }
+
+  const userId = user.id;
+
   // Look up catalog IDs for all exercises we reference
   const catalog = await prisma.exerciseCatalog.findMany({
     where: { isDefault: true },
@@ -95,36 +115,42 @@ async function main() {
 
   // Delete existing sessions/block for this user to start fresh
   await prisma.exerciseSet.deleteMany({
-    where: { exercise: { workoutSession: { userId: USER_ID } } },
+    where: { exercise: { workoutSession: { userId } } },
   });
   await prisma.exercise.deleteMany({
-    where: { workoutSession: { userId: USER_ID } },
+    where: { workoutSession: { userId } },
   });
-  await prisma.workoutSession.deleteMany({ where: { userId: USER_ID } });
-  await prisma.trainingBlock.deleteMany({ where: { userId: USER_ID } });
+  await prisma.workoutSession.deleteMany({ where: { userId } });
+  await prisma.trainingBlock.deleteMany({ where: { userId } });
 
   console.log('Cleared existing workout data for Brendan');
 
   // Generate ~9 months of data: July 2025 through March 2026
   // That's about 39 weeks, organized into training blocks of 5 weeks each (8 blocks)
-  const startDate = new Date('2025-07-07'); // A Monday
   const totalWeeks = 39;
   const weeksPerBlock = 5;
   const numBlocks = Math.ceil(totalWeeks / weeksPerBlock);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const activeCurrentWeek = 4;
+  const activeCompletedDaysThisWeek = 5; // Leaves Legs B as the next planned/startable workout.
+  const activeBlockStart = startOfWeek(today);
+  activeBlockStart.setDate(activeBlockStart.getDate() - (activeCurrentWeek - 1) * 7);
+  const historicalStartDate = new Date(activeBlockStart);
+  historicalStartDate.setDate(historicalStartDate.getDate() - (totalWeeks - activeCurrentWeek) * 7);
 
   let globalWeek = 0;
 
   for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
-    const blockStart = new Date(startDate);
-    blockStart.setDate(blockStart.getDate() + blockIdx * weeksPerBlock * 7);
-
     const blockWeeks = Math.min(weeksPerBlock, totalWeeks - blockIdx * weeksPerBlock);
     const isLastBlock = blockIdx === numBlocks - 1;
+    const blockStart = new Date(isLastBlock ? activeBlockStart : historicalStartDate);
+    blockStart.setDate(blockStart.getDate() + blockIdx * weeksPerBlock * 7);
 
     const block = await prisma.trainingBlock.create({
       data: {
         id: uuid(),
-        userId: USER_ID,
+        userId,
         status: isLastBlock ? 'active' : 'completed',
         blockNumber: blockIdx + 1,
         startDate: blockStart,
@@ -134,7 +160,7 @@ async function main() {
           return end;
         })(),
         lengthWeeks: blockWeeks,
-        currentWeek: isLastBlock ? blockWeeks : blockWeeks,
+        currentWeek: isLastBlock ? activeCurrentWeek : blockWeeks,
         splitType: 'push_pull_legs',
         daysPerWeek: 6,
         volumeTargets: {
@@ -161,31 +187,53 @@ async function main() {
         const sessionDate = new Date(blockStart);
         sessionDate.setDate(sessionDate.getDate() + weekInBlock * 7 + dayIdx);
 
-        // Skip some sessions randomly (~10% miss rate, more likely on day 6)
-        const skipChance = dayIdx === 5 ? 0.25 : 0.08;
-        if (Math.random() < skipChance) continue;
-
-        // Don't create future sessions
-        if (sessionDate > new Date()) continue;
-
         const dayDef = PPL_DAYS[dayIdx];
-        const sessionStartHour = rand(6, 18);
-        const sessionStartMin = rand(0, 59);
-        const durationMin = rand(55, 85);
-        const startedAt = new Date(sessionDate);
-        startedAt.setHours(sessionStartHour, sessionStartMin, 0, 0);
-        const completedAt = new Date(startedAt);
-        completedAt.setMinutes(completedAt.getMinutes() + durationMin);
+        let sessionStatus: 'completed' | 'planned' | null = null;
+
+        if (!isLastBlock) {
+          // Historical blocks: mostly completed, with occasional skipped days.
+          const skipChance = dayIdx === 5 ? 0.25 : 0.08;
+          if (Math.random() < skipChance) continue;
+          if (sessionDate > today) continue;
+          sessionStatus = 'completed';
+        } else {
+          // Active block: materialize the current week so the next workout is startable.
+          if (weekInBlock < activeCurrentWeek - 1) {
+            sessionStatus = 'completed';
+          } else if (weekInBlock === activeCurrentWeek - 1) {
+            if (dayIdx < activeCompletedDaysThisWeek) {
+              sessionStatus = 'completed';
+            } else if (dayIdx === activeCompletedDaysThisWeek) {
+              sessionStatus = 'planned';
+            } else {
+              continue;
+            }
+          } else {
+            continue;
+          }
+        }
+
+        let startedAt: Date | undefined;
+        let completedAt: Date | undefined;
+        if (sessionStatus === 'completed') {
+          const sessionStartHour = rand(6, 18);
+          const sessionStartMin = rand(0, 59);
+          const durationMin = rand(55, 85);
+          startedAt = new Date(sessionDate);
+          startedAt.setHours(sessionStartHour, sessionStartMin, 0, 0);
+          completedAt = new Date(startedAt);
+          completedAt.setMinutes(completedAt.getMinutes() + durationMin);
+        }
 
         const session = await prisma.workoutSession.create({
           data: {
             id: uuid(),
             trainingBlockId: block.id,
-            userId: USER_ID,
+            userId,
             date: sessionDate,
             weekNumber: weekInBlock + 1,
             dayLabel: dayDef.label,
-            status: 'completed',
+            status: sessionStatus,
             startedAt,
             completedAt,
           },
@@ -195,12 +243,15 @@ async function main() {
         for (let exIdx = 0; exIdx < dayDef.exercises.length; exIdx++) {
           const exDef = dayDef.exercises[exIdx];
           const catalogId = catalogMap.get(exDef.name);
+          if (!catalogId) {
+            throw new Error(`Missing default catalog entry for seeded exercise "${exDef.name}"`);
+          }
 
           const exercise = await prisma.exercise.create({
             data: {
               id: uuid(),
               workoutSessionId: session.id,
-              catalogId: catalogId || undefined,
+              catalogId,
               orderIndex: exIdx,
               exerciseName: exDef.name,
               muscleGroup: exDef.muscle,
@@ -230,7 +281,7 @@ async function main() {
             const actualRir = Math.max(0, targetRir + rand(-1, 1));
 
             // ~95% completion rate
-            const completed = Math.random() < 0.95;
+            const completed = sessionStatus === 'completed' ? Math.random() < 0.95 : false;
 
             await prisma.exerciseSet.create({
               data: {
@@ -254,9 +305,9 @@ async function main() {
   }
 
   // Count what we created
-  const sessionCount = await prisma.workoutSession.count({ where: { userId: USER_ID } });
-  const exerciseCount = await prisma.exercise.count({ where: { workoutSession: { userId: USER_ID } } });
-  const setCount = await prisma.exerciseSet.count({ where: { exercise: { workoutSession: { userId: USER_ID } } } });
+  const sessionCount = await prisma.workoutSession.count({ where: { userId } });
+  const exerciseCount = await prisma.exercise.count({ where: { workoutSession: { userId } } });
+  const setCount = await prisma.exerciseSet.count({ where: { exercise: { workoutSession: { userId } } } });
 
   console.log(`\nDone! Created:`);
   console.log(`  ${numBlocks} training blocks`);

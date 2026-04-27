@@ -8,53 +8,69 @@ import {
   getMuscleGroupsForDay,
 } from '../services/workoutGenerator';
 import { prescribeSession } from '../services/sessionAutoregulation';
+import { resolveExerciseCatalogId } from '../services/exerciseCatalogResolver';
 
 const router = Router();
+
+async function getTodayContext(userId: string) {
+  const block = await prisma.trainingBlock.findFirst({
+    where: { userId, status: 'active' },
+  });
+
+  if (!block) return null;
+
+  const sessionsThisWeek = await prisma.workoutSession.findMany({
+    where: {
+      trainingBlockId: block.id,
+      weekNumber: block.currentWeek,
+    },
+    include: {
+      exercises: {
+        orderBy: { orderIndex: 'asc' },
+        select: { exerciseName: true },
+      },
+    },
+    orderBy: { date: 'asc' },
+  });
+
+  const completedCount = sessionsThisWeek.filter((s) => s.status === 'completed').length;
+  const dayIndex = completedCount % block.daysPerWeek;
+  const customDays = block.customDays as { dayLabel: string; muscleGroups: string[] }[] | undefined;
+  const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, customDays);
+  const rir = getRirForWeek(block.currentWeek, block.lengthWeeks, block);
+
+  const dayCompletions: Record<string, { completed: boolean; exercises: string[] }> = {};
+  for (const s of sessionsThisWeek) {
+    if (s.status === 'completed') {
+      dayCompletions[s.dayLabel] = {
+        completed: true,
+        exercises: s.exercises.map((e) => e.exerciseName),
+      };
+    }
+  }
+
+  return {
+    block,
+    sessionsThisWeek,
+    dayIndex,
+    dayLabel: dayLabels[dayIndex],
+    customDays,
+    dayCompletions,
+    rir,
+  };
+}
 
 // Get today's context (split day, muscle groups, volume status)
 router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const block = await prisma.trainingBlock.findFirst({
-      where: { userId: req.userId!, status: 'active' },
-    });
-
-    if (!block) {
+    const todayContext = await getTodayContext(req.userId!);
+    if (!todayContext) {
       res.status(404).json({ error: 'No active training block found' });
       return;
     }
 
-    // Count completed sessions this week to determine which day we're on
-    const sessionsThisWeek = await prisma.workoutSession.findMany({
-      where: {
-        trainingBlockId: block.id,
-        weekNumber: block.currentWeek,
-      },
-      include: {
-        exercises: {
-          orderBy: { orderIndex: 'asc' },
-          select: { exerciseName: true },
-        },
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    const completedCount = sessionsThisWeek.filter((s) => s.status === 'completed').length;
-    const dayIndex = completedCount % block.daysPerWeek;
-
-    const customDays = block.customDays as { dayLabel: string; muscleGroups: string[] }[] | undefined;
+    const { block, sessionsThisWeek, dayIndex, dayLabel, customDays, dayCompletions, rir } = todayContext;
     const dayLabels = getDayLabels(block.splitType, block.daysPerWeek, customDays);
-    const rir = getRirForWeek(block.currentWeek, block.lengthWeeks, block);
-
-    // Build completion info per day label for this week
-    const dayCompletions: Record<string, { completed: boolean; exercises: string[] }> = {};
-    for (const s of sessionsThisWeek) {
-      if (s.status === 'completed') {
-        dayCompletions[s.dayLabel] = {
-          completed: true,
-          exercises: s.exercises.map((e) => e.exerciseName),
-        };
-      }
-    }
 
     // For build-as-you-go, return all day options so user can choose
     if (block.setupMethod === 'build_as_you_go') {
@@ -69,7 +85,7 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
         trainingBlockId: block.id,
         weekNumber: block.currentWeek,
         dayIndex,
-        dayLabel: dayLabels[dayIndex],
+        dayLabel,
         dayOptions,
         suggestedMuscleGroups: getMuscleGroupsForDay(block.splitType, dayIndex, customDays),
         targetRir: rir,
@@ -86,7 +102,7 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
       trainingBlockId: block.id,
       weekNumber: block.currentWeek,
       dayIndex,
-      dayLabel: dayLabels[dayIndex],
+      dayLabel,
       suggestedMuscleGroups: muscleGroups,
       targetRir: rir,
       splitType: block.splitType,
@@ -95,6 +111,60 @@ router.get('/today', requireAuth, async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Get today error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/today/overview', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const todayContext = await getTodayContext(req.userId!);
+    if (!todayContext) {
+      res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+    
+    const { block, dayLabel } = todayContext;
+
+    const sessions = await prisma.workoutSession.findMany({
+      where: {
+        trainingBlockId: block.id,
+        weekNumber: block.currentWeek,
+        dayLabel,
+      },
+      include: {
+        exercises: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            sets: {
+              select: { id: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const session =
+      sessions.find((candidate) => candidate.status === 'in_progress') ??
+      sessions.find((candidate) => candidate.status === 'planned') ??
+      sessions[0];
+
+    if (!session) {
+      res.json(null);
+      return;
+    }
+
+    const exercises = session.exercises.map((exercise) => ({
+      exerciseName: exercise.exerciseName,
+      sets: exercise.sets.length,
+    }));
+    res.json({
+      dayLabel,
+      totalWorkoutSets: exercises.reduce((total, exercise) => total + exercise.sets, 0),
+      exercises,
+    });
+  } catch (error) {
+    console.error('Get today overview error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -248,11 +318,16 @@ router.post('/session/create', requireAuth, async (req: AuthRequest, res: Respon
 
     for (let i = 0; i < data.exercises.length; i++) {
       const exDef = data.exercises[i];
+      const catalogId = await resolveExerciseCatalogId({
+        userId: req.userId!,
+        exerciseName: exDef.exerciseName,
+        catalogId: exDef.catalogId,
+      });
 
       const exercise = await prisma.exercise.create({
         data: {
           workoutSessionId: session.id,
-          catalogId: exDef.catalogId || null,
+          catalogId,
           orderIndex: i,
           exerciseName: exDef.exerciseName,
           muscleGroup: exDef.muscleGroup,
@@ -460,11 +535,16 @@ router.put('/program/day/:dayLabel/exercises', requireAuth, async (req: AuthRequ
       for (let i = 0; i < data.exercises.length; i++) {
         const exDef = data.exercises[i];
         const midReps = Math.round(((exDef.repRangeLow || 6) + (exDef.repRangeHigh || 12)) / 2);
+        const catalogId = await resolveExerciseCatalogId({
+          userId: req.userId!,
+          exerciseName: exDef.exerciseName,
+          catalogId: exDef.catalogId,
+        });
 
         const exercise = await prisma.exercise.create({
           data: {
             workoutSessionId: session.id,
-            catalogId: exDef.catalogId || null,
+            catalogId,
             orderIndex: i,
             exerciseName: exDef.exerciseName,
             muscleGroup: exDef.muscleGroup,

@@ -1,7 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
@@ -10,6 +9,7 @@ import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 import RecentPRs from '../../src/components/Home/RecentPRs';
 import RecommendationPanel from '../../src/components/Home/RecommendationPanel';
 import { PREvent, TodayContext, TodayOverview } from '../../src/types/training';
+import TodaysWorkout from '../../src/components/Home/todaysWorkout';
 // NUTRITION_HIDDEN: MacroRing import removed
 
 interface ActiveTrainingBlock {
@@ -199,35 +199,8 @@ export default function Dashboard() {
               : `${workoutInfo.title} today`}
         </Text>
         {/* Today's workout card */}
-        <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
-          <View style={styles.workoutCardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardLabel}>TODAY'S WORKOUT</Text>
-              <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
-            </View>
-            <View style={styles.playButton}>
-              <Ionicons
-                name={workoutInfo.isBuildable ? 'add' : 'play'}
-                size={workoutInfo.isBuildable ? 22 : 16}
-                color={COLORS.text_on_accent}
-                style={!workoutInfo.isBuildable ? styles.playIconOffset : undefined}
-              />
-            </View>
-          </View>
-
-          {todayOverview && (
-            <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: SPACING.sm }}>
-              {todayOverview.exercises.map((e, index) => (
-                <View key={index} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: SPACING.sm}}> 
-                  <View style={styles.phaseDot} />
-                  <Text style={{ color: COLORS.text_primary }}>{e.exerciseName}</Text>
-                  <Text style={{ color: COLORS.text_secondary }}>{e.sets} sets</Text>
-                </View>
-              ))}
-            </View>
-          )}
-          <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
-        </TouchableOpacity>
+        <TodaysWorkout workoutInfo={workoutInfo} todayOverview={todayOverview} todayContext={today} />
+        
 
         {/* Recommendations */}
         {trainingBlock && <RecommendationPanel recommendations={recommendations} />}
@@ -292,48 +265,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     marginBottom: SPACING.lg,
-  },
-  workoutCard: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    marginBottom: SPACING.md,
-  },
-  workoutCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  cardLabel: {
-    color: COLORS.text_tertiary,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  cardTitle: {
-    color: COLORS.text_primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  workoutSubtext: {
-    color: COLORS.text_tertiary,
-    fontSize: 12,
-    marginTop: SPACING.sm,
-  },
-  playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.accent_primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playIconOffset: {
-    marginLeft: 3,
   },
   quickActions: {
     flexDirection: 'row',

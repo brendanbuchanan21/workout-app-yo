@@ -40,6 +40,19 @@ function splitDetail(detail: string) {
   };
 }
 
+function compactExerciseList(context: string | null) {
+  if (!context) return null;
+
+  const items = context
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (items.length <= 3) return context;
+
+  return `${items.slice(0, 3).join(', ')} + ${items.length - 3} more`;
+}
+
 function splitMessage(message: string) {
   const firstSentenceMatch = message.match(/^(.+?[.!?])(\s+.+)?$/);
   if (!firstSentenceMatch) {
@@ -58,16 +71,20 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
   if (recommendations.length === 0) return null;
 
   const visible = recommendations.slice(0, 3);
+  const featured = visible.slice(0, 2);
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>INSIGHTS</Text>
-      {visible.map((rec) => {
+      <View style={styles.grid}>
+      {featured.map((rec) => {
         const color = PRIORITY_COLORS[rec.priority] || COLORS.text_secondary;
         const { context, message } = splitDetail(rec.detail);
-        const { preview, remainder } = splitMessage(message);
+        const compactContext = compactExerciseList(context);
         const isExpanded = expandedId === rec.id;
-        const isExpandable = remainder.length > 0;
+        const { preview, remainder } = splitMessage(message);
+        const fullMessage = remainder ? `${preview} ${remainder}` : preview;
+        const isExpandable = Boolean(fullMessage.trim());
         return (
           <Pressable
             key={rec.id}
@@ -81,17 +98,14 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
             </View>
             <View style={styles.textWrap}>
               <Text style={styles.title}>{rec.title}</Text>
-              {context ? (
+              {compactContext ? (
                 <Text style={styles.context}>
-                  {context}
+                  {compactContext}
                 </Text>
               ) : null}
-              <Text style={styles.detail}>
-                {preview}
-              </Text>
               {isExpanded && isExpandable ? (
                 <Text style={styles.detailExpanded}>
-                  {remainder}
+                  {fullMessage}
                 </Text>
               ) : null}
               {isExpandable ? (
@@ -103,74 +117,83 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
           </Pressable>
         );
       })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   sectionLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '900',
     color: COLORS.text_tertiary,
-    letterSpacing: 1.5,
-    marginBottom: SPACING.md,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    padding: SPACING.md,
+    letterSpacing: 1,
     marginBottom: SPACING.sm,
   },
+  grid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  card: {
+    flex: 1,
+    minHeight: 120,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.sm + 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+  },
   iconWrap: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   icon: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '900',
   },
   textWrap: {
     flex: 1,
   },
   title: {
     color: COLORS.text_primary,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 18,
+    marginBottom: 6,
   },
   context: {
     color: COLORS.text_tertiary,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
     lineHeight: 15,
     marginBottom: 4,
   },
   detail: {
     color: COLORS.text_secondary,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 15,
   },
   detailExpanded: {
     color: COLORS.text_secondary,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 4,
   },
   expandHint: {
-    color: COLORS.text_tertiary,
+    color: COLORS.gold_primary,
     fontSize: 11,
     fontWeight: '500',
-    marginTop: 8,
+    marginTop: SPACING.sm,
   },
 });

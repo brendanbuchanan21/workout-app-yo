@@ -47,6 +47,9 @@ export default function RecentPRs({ events }: RecentPRsProps) {
             key={i}
             style={[styles.row, i < top.length - 1 && styles.rowBorder]}
           >
+            <View style={styles.trophyWrap}>
+              <Text style={styles.trophy}>🏆</Text>
+            </View>
             <View style={styles.rowLeft}>
               <Text style={styles.exerciseName} numberOfLines={1}>
                 {event.exerciseName}
@@ -73,6 +76,7 @@ export default function RecentPRs({ events }: RecentPRsProps) {
 const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   header: {
     flexDirection: 'row',
@@ -82,28 +86,28 @@ const styles = StyleSheet.create({
   },
   headerLabel: {
     color: COLORS.text_tertiary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   seeAll: {
     color: COLORS.accent_light,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   card: {
-    backgroundColor: COLORS.bg_secondary,
+    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    paddingHorizontal: SPACING.lg,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   rowBorder: {
     borderBottomWidth: 1,
@@ -119,21 +123,35 @@ const styles = StyleSheet.create({
   exerciseName: {
     color: COLORS.text_primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     marginBottom: 2,
   },
   meta: {
-    color: COLORS.text_tertiary,
-    fontSize: 11,
+    color: COLORS.gold_primary,
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
   },
   prValue: {
-    color: COLORS.accent_primary,
+    color: COLORS.gold_primary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '900',
     marginBottom: 2,
   },
   date: {
     color: COLORS.text_tertiary,
     fontSize: 11,
+  },
+  trophyWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.gold_subtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  trophy: {
+    fontSize: 18,
   },
 });

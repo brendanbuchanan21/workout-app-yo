@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import Svg, { Circle, Defs, LinearGradient, Path, Polygon, Polyline, Stop } from 'react-native-svg';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
@@ -30,6 +31,61 @@ const MUSCLE_LABELS: Record<string, string> = {
   side_delts: 'Side Delts', rear_delts: 'Rear Delts', biceps: 'Biceps',
   triceps: 'Triceps', calves: 'Calves', abs: 'Abs', glutes: 'Glutes', traps: 'Traps',
 };
+
+function WeeklySummaryCard({ totalSets, completedSets }: { totalSets: number; completedSets: number }) {
+  const score = Math.max(0, totalSets * 20 + completedSets * 8);
+  const pct = totalSets > 0 ? Math.min(completedSets / totalSets, 1) : 0.18;
+  const endAngle = Math.PI + Math.PI * Math.max(pct, 0.18);
+  const center = { x: 70, y: 76 };
+  const radius = 52;
+  const arcStart = { x: center.x - radius, y: center.y };
+  const arcEnd = {
+    x: center.x + Math.cos(endAngle) * radius,
+    y: center.y + Math.sin(endAngle) * radius,
+  };
+  const arcPath = `M ${center.x - radius} ${center.y} A ${radius} ${radius} 0 0 1 ${center.x + radius} ${center.y}`;
+  const progressPath = `M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`;
+
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.gaugeWrap}>
+        <Svg width={138} height={84}>
+          <Path d={arcPath} stroke={COLORS.bg_input} strokeWidth={14} fill="none" strokeLinecap="butt" />
+          <Path d={progressPath} stroke={COLORS.accent_primary} strokeWidth={14} fill="none" strokeLinecap="butt" />
+        </Svg>
+        <Text style={styles.gaugeValue}>{score}</Text>
+        <Text style={styles.gaugeLabel}>Strength Trend</Text>
+        <Text style={styles.gaugeSubLabel}>Past 4 weeks</Text>
+      </View>
+      <View style={styles.summaryCopy}>
+        <Text style={styles.summaryTitle}>Weekly Volume Summary</Text>
+        <Text style={styles.summaryText}>Current overall weekly progress</Text>
+        <Svg width={130} height={44} style={styles.sparkline}>
+          <Defs>
+            <LinearGradient id="sparkGlow" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={COLORS.gold_primary} stopOpacity="0.22" />
+              <Stop offset="0.58" stopColor={COLORS.accent_primary} stopOpacity="0.08" />
+              <Stop offset="1" stopColor={COLORS.accent_primary} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Polygon
+            points="6,34 34,26 60,16 86,21 110,15 126,8 126,44 6,44"
+            fill="url(#sparkGlow)"
+          />
+          <Polyline
+            points="6,34 34,26 60,16 86,21 110,15 126,8"
+            fill="none"
+            stroke={COLORS.gold_primary}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Circle cx={126} cy={8} r={3.5} fill={COLORS.gold_primary} />
+        </Svg>
+      </View>
+    </View>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -169,6 +225,14 @@ export default function Dashboard() {
   const weekLabel = trainingBlock
     ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}${phaseLabel ? ` · ${phaseLabel}` : ''}`
     : '';
+  const todaysSessionsForProgress = trainingBlock?.workoutSessions?.filter(
+    (session: any) => today && session.weekNumber === today.weekNumber && session.dayLabel === today.dayLabel
+  ) ?? [];
+  const totalSets = todayOverview?.totalWorkoutSets ?? 0;
+  const completedSets = todaysSessionsForProgress
+    ?.flatMap((session: any) => session.exercises || [])
+    ?.flatMap((exercise: any) => exercise.sets || [])
+    ?.filter((set: any) => set.completed).length ?? 0;
 
   if (loading) {
     return (
@@ -183,23 +247,16 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Phase badge */}
-        <View style={styles.phaseBadge}>
-          <View style={styles.phaseDot} />
-          <Text style={styles.phaseText}>{weekLabel || 'TRAINING'}</Text>
+        <View style={styles.topRow}>
+          <Text style={styles.greeting}>Hey {user?.displayName || 'there'}</Text>
+          <View style={styles.phaseBadge}>
+            <View style={styles.phaseDot} />
+            <Text style={styles.phaseText}>{weekLabel || 'TRAINING'}</Text>
+          </View>
         </View>
-
-        {/* Greeting */}
-        <Text style={styles.greeting}>Hey {user?.displayName || 'there'}</Text>
-        <Text style={styles.subGreeting}>
-          {workoutInfo.isEmpty
-            ? 'No workout scheduled'
-            : workoutInfo.isBuildable
-              ? 'Pick a day and build your workout'
-              : `${workoutInfo.title} today`}
-        </Text>
         {/* Today's workout card */}
         <TodaysWorkout workoutInfo={workoutInfo} todayOverview={todayOverview} todayContext={today} />
+        <WeeklySummaryCard totalSets={totalSets} completedSets={completedSets} />
         
 
         {/* Recommendations */}
@@ -218,18 +275,26 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg_primary,
   },
   scroll: {
-    padding: SPACING.xl,
+    padding: SPACING.lg,
+    paddingBottom: 110,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   phaseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.accent_subtle,
+    paddingHorizontal: 11,
+    backgroundColor: 'rgba(232, 145, 45, 0.10)',
     borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 145, 45, 0.42)',
   },
   phaseDot: {
     width: 6,
@@ -238,16 +303,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent_primary,
   },
   phaseText: {
-    color: COLORS.accent_light,
-    fontSize: 12,
-    fontWeight: '600',
+    color: COLORS.gold_primary,
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 0.3,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: '700',
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '900',
     color: COLORS.text_primary,
-    letterSpacing: -0.3,
+    letterSpacing: -0.7,
   },
   subGreeting: {
     fontSize: 13,
@@ -304,5 +370,62 @@ const styles = StyleSheet.create({
     color: COLORS.text_tertiary,
     fontSize: 20,
     fontWeight: '600',
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    marginBottom: 0,
+    overflow: 'hidden',
+  },
+  gaugeWrap: {
+    width: 138,
+    height: 100,
+    justifyContent: 'flex-end',
+  },
+  gaugeValue: {
+    position: 'absolute',
+    left: 42,
+    top: 40,
+    color: COLORS.gold_primary,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  gaugeLabel: {
+    color: COLORS.text_primary,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: -8,
+  },
+  gaugeSubLabel: {
+    color: COLORS.text_secondary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  summaryCopy: {
+    flex: 1,
+  },
+  summaryTitle: {
+    color: COLORS.text_primary,
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 19,
+  },
+  summaryText: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  sparkline: {
+    marginTop: SPACING.sm,
+    marginLeft: -4,
   },
 });

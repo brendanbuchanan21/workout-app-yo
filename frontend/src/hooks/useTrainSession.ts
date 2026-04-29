@@ -425,7 +425,7 @@ export function useTrainSession() {
     }
   };
 
-  const addExerciseToSession = async (ex: CatalogExercise) => {
+  const addExerciseToSession = async (ex: CatalogExercise, options?: { makeCurrent?: boolean }) => {
     if (!session) return;
     try {
       const res = await apiPost(`/training/session/${session.id}/exercise`, {
@@ -439,6 +439,11 @@ export function useTrainSession() {
       if (res.ok) {
         const data = await res.json();
         setSession(data.session);
+        if (options?.makeCurrent) {
+          const addedIndex = data.session.exercises.findIndex((exercise: any) => exercise.catalogId === ex.id);
+          setCurrentExercise(addedIndex >= 0 ? addedIndex : data.session.exercises.length - 1);
+          setActiveSetIdx(null);
+        }
         setShowAddExercise(false);
         setExerciseSearch('');
         setSelectedMuscle(null);

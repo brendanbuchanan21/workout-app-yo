@@ -10,6 +10,8 @@ const HIGHLIGHT_SUBTLE = COLORS.accent_subtle;
 interface MuscleGroupIconProps {
   muscle: string;
   size?: number;
+  framed?: boolean;
+  background?: boolean;
 }
 
 function Frame() {
@@ -173,7 +175,7 @@ function LegHighlights({ muscle }: { muscle: string }) {
   }
 }
 
-export default function MuscleGroupIcon({ muscle, size = 36 }: MuscleGroupIconProps) {
+export default function MuscleGroupIcon({ muscle, size = 36, framed = true, background = true }: MuscleGroupIconProps) {
   const lowerBodyMuscles = new Set(['quads', 'hamstrings', 'glutes', 'calves']);
   const backViewMuscles = new Set(['back', 'rear_delts', 'traps']);
   const armMuscles = new Set(['biceps', 'triceps']);
@@ -184,8 +186,8 @@ export default function MuscleGroupIcon({ muscle, size = 36 }: MuscleGroupIconPr
 
   return (
     <Svg width={size} height={size} viewBox="0 0 36 36">
-      <Circle cx="18" cy="18" r="16" fill={HIGHLIGHT_SUBTLE} opacity="0.35" />
-      <Frame />
+      {background && <Circle cx="18" cy="18" r="16" fill={HIGHLIGHT_SUBTLE} opacity="0.35" />}
+      {framed && <Frame />}
 
       {isArmView ? <FlexArmOutline /> : isLowerBody ? <LegOutline /> : isBackView ? <BackOutline /> : <FrontOutline />}
 

@@ -13,6 +13,8 @@ interface ExerciseSearchPanelProps {
   setSelectedMuscle: (muscle: string | null) => void;
   existingIds: string[];
   onAddExercise: (ex: CatalogExercise) => void;
+  title?: string;
+  addLabel?: string;
 }
 
 export default function ExerciseSearchPanel({
@@ -23,6 +25,8 @@ export default function ExerciseSearchPanel({
   setSelectedMuscle,
   existingIds,
   onAddExercise,
+  title = 'Add Exercise',
+  addLabel,
 }: ExerciseSearchPanelProps) {
   const searchTerm = exerciseSearch.trim().toLowerCase();
   const filtered = searchTerm
@@ -33,7 +37,7 @@ export default function ExerciseSearchPanel({
 
   return (
     <View style={{ marginTop: SPACING.md }}>
-      <Text style={styles.sectionTitle}>Add Exercise</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
       <TextInput
         style={styles.exerciseSearchInput}
         placeholder="Search exercises..."
@@ -77,6 +81,8 @@ export default function ExerciseSearchPanel({
             </View>
             {alreadyInSession ? (
               <Text style={{ color: COLORS.success, fontSize: 13, fontWeight: '600' }}>Added</Text>
+            ) : addLabel ? (
+              <Text style={{ color: COLORS.accent_light, fontSize: 13, fontWeight: '700' }}>{addLabel}</Text>
             ) : (
               <Text style={{ color: COLORS.accent_light, fontSize: 20, fontWeight: '700' }}>+</Text>
             )}

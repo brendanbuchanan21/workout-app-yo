@@ -31,40 +31,44 @@ export default function SetRow({
   setInputs,
   setSetInputs,
 }: SetRowProps) {
+  const targetParts = [
+    set.targetReps != null ? `${set.targetReps} reps` : null,
+    set.targetWeightKg != null ? `@ ${kgToLbs(set.targetWeightKg)} lb` : null,
+    set.targetRir != null ? `RIR ${set.targetRir}` : null,
+  ].filter(Boolean);
+
   return (
     <View>
       <TouchableOpacity
         style={[styles.setRow, set.completed && styles.setRowCompleted, isEditing && styles.setRowActive]}
         onPress={() => onOpenSet(exerciseIdx, index)}
       >
-        <View style={[styles.setCircle, set.completed && styles.setCircleCompleted]}>
+        <View style={[styles.setPill, set.completed && styles.setPillCompleted]}>
+          <Text style={[styles.setPillText, set.completed && styles.setPillTextCompleted]}>
+            {set.completed ? '✓' : set.setNumber}
+          </Text>
+        </View>
+
+        <View style={styles.setContent}>
+          <Text style={styles.setTitle}>Set {set.setNumber}</Text>
           {set.completed ? (
-            <Text style={styles.checkmark}>✓</Text>
+            <Text style={styles.setSubtitle}>
+              {set.actualReps ?? '—'} reps
+              {set.actualWeightKg != null ? ` @ ${kgToLbs(set.actualWeightKg)} lb` : ''}
+              {set.actualRir != null ? ` · RIR ${set.actualRir}` : ''}
+            </Text>
           ) : (
-            <Text style={styles.setNum}>{set.setNumber}</Text>
+            <Text style={styles.setSubtitle}>
+              {targetParts.length > 0 ? targetParts.join(' · ') : 'Tap to log'}
+            </Text>
           )}
         </View>
-        {set.completed ? (
-          <View style={styles.setDetails}>
-            <View style={styles.setDetail}>
-              <Text style={styles.setDetailLabel}>WEIGHT</Text>
-              <Text style={styles.setDetailValue}>{set.actualWeightKg != null ? `${kgToLbs(set.actualWeightKg)}` : '—'}</Text>
-            </View>
-            <View style={styles.setDetail}>
-              <Text style={styles.setDetailLabel}>REPS</Text>
-              <Text style={styles.setDetailValue}>{set.actualReps ?? '—'}</Text>
-            </View>
-            <View style={styles.setDetail}>
-              <Text style={styles.setDetailLabel}>RIR</Text>
-              <Text style={[styles.setDetailValue, { color: COLORS.accent_light }]}>{set.actualRir ?? '—'}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.setDetails}>
-            <Text style={{ color: COLORS.text_tertiary, fontSize: 13 }}>Tap to log</Text>
-          </View>
-        )}
+
+        <Text style={[styles.setAction, set.completed && styles.setActionCompleted]}>
+          {set.completed ? 'Logged' : 'Tap to log'}
+        </Text>
       </TouchableOpacity>
+
       {isEditing && (
         <View style={styles.setInputRow}>
           <View style={styles.setInputGroup}>
@@ -117,23 +121,65 @@ const styles = StyleSheet.create({
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    paddingVertical: 14,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.bg_elevated,
-    borderRadius: 10,
-    marginBottom: 6,
-    borderWidth: 1,
+    backgroundColor: COLORS.bg_card,
+    borderRadius: 0,
+    marginBottom: 0,
+    borderWidth: 0,
+    borderTopWidth: 1,
     borderColor: COLORS.border_subtle,
   },
   setRowCompleted: {
     backgroundColor: COLORS.accent_subtle,
-    borderColor: 'rgba(232,145,45,0.2)',
+    borderColor: 'rgba(232,145,45,0.22)',
   },
   setRowActive: {
-    borderColor: COLORS.accent_primary,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    marginBottom: 0,
+    backgroundColor: COLORS.bg_input,
+    borderColor: COLORS.border,
+  },
+  setPill: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.bg_input,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  setPillCompleted: {
+    backgroundColor: COLORS.accent_primary,
+  },
+  setPillText: {
+    color: COLORS.text_secondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  setPillTextCompleted: {
+    color: COLORS.text_on_accent,
+  },
+  setContent: {
+    flex: 1,
+    gap: 2,
+  },
+  setTitle: {
+    color: COLORS.text_primary,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  setSubtitle: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+  },
+  setAction: {
+    color: COLORS.text_tertiary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: SPACING.md,
+  },
+  setActionCompleted: {
+    color: COLORS.accent_light,
+    fontWeight: '600',
   },
   setInputRow: {
     flexDirection: 'row',
@@ -141,12 +187,12 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     backgroundColor: COLORS.bg_secondary,
     padding: SPACING.md,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderBottomLeftRadius: RADIUS.md,
+    borderBottomRightRadius: RADIUS.md,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: COLORS.accent_primary,
-    marginBottom: SPACING.sm,
+    borderColor: COLORS.border,
+    marginBottom: 0,
   },
   setInputGroup: {
     flex: 1,
@@ -170,8 +216,8 @@ const styles = StyleSheet.create({
   setConfirmBtn: {
     backgroundColor: COLORS.accent_primary,
     borderRadius: RADIUS.sm,
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -179,44 +225,5 @@ const styles = StyleSheet.create({
     color: COLORS.text_on_accent,
     fontSize: 18,
     fontWeight: '700',
-  },
-  setCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: COLORS.bg_input,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  setCircleCompleted: {
-    backgroundColor: COLORS.accent_primary,
-  },
-  checkmark: {
-    color: COLORS.text_on_accent,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  setNum: {
-    color: COLORS.text_tertiary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  setDetails: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 20,
-  },
-  setDetail: {},
-  setDetailLabel: {
-    color: COLORS.text_tertiary,
-    fontSize: 9,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  setDetailValue: {
-    color: COLORS.text_primary,
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

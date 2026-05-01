@@ -2,15 +2,15 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import Svg, { Circle, Defs, LinearGradient, Path, Polygon, Polyline, Stop } from 'react-native-svg';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
-import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
+import { COLORS, SPACING } from '../../src/constants/theme';
 import RecentPRs from '../../src/components/Home/RecentPRs';
 import RecommendationPanel from '../../src/components/Home/RecommendationPanel';
 import { PREvent, TodayContext, TodayOverview } from '../../src/types/training';
 import TodaysWorkout from '../../src/components/Home/todaysWorkout';
+import WeeklySummaryCard from '../../src/components/Home/weeklySummaryCard';
 // NUTRITION_HIDDEN: MacroRing import removed
 
 interface ActiveTrainingBlock {
@@ -31,130 +31,12 @@ interface WeeklyVolumeData {
   data: Record<string, (number | null)[]>;
 }
 
+
 // NUTRITION_HIDDEN: PHASE_LABELS removed
 
-const MUSCLE_LABELS: Record<string, string> = {
-  chest: 'Chest', back: 'Back', quads: 'Quads', hamstrings: 'Hamstrings',
-  side_delts: 'Side Delts', rear_delts: 'Rear Delts', biceps: 'Biceps',
-  triceps: 'Triceps', calves: 'Calves', abs: 'Abs', glutes: 'Glutes', traps: 'Traps',
-};
-
-function buildSparklinePoints(values: number[], width = 130, height = 44) {
-  const safeValues = values.length > 0 ? values : [0, 0, 0, 0];
-  const maxValue = Math.max(...safeValues, 1);
-  const minValue = Math.min(...safeValues, 0);
-  const range = Math.max(maxValue - minValue, 1);
-
-  return safeValues.map((value, index) => {
-    const x = 6 + (index / Math.max(safeValues.length - 1, 1)) * (width - 10);
-    const y = 8 + (1 - (value - minValue) / range) * (height - 16);
-    return `${Math.round(x)},${Math.round(y)}`;
-  }).join(' ');
-}
-
-function getWeeklyVolumeStats(weeklyVolume: WeeklyVolumeData | null) {
-  if (!weeklyVolume) {
-    return {
-      targetSets: 0,
-      completedSets: 0,
-      remainingSets: 0,
-      trend: [0, 0, 0, 0],
-    };
-  }
-
-  const currentWeekIndex = Math.max(0, weeklyVolume.currentWeek - 1);
-  const targetSets = Object.values(weeklyVolume.volumeTargets || {})
-    .reduce((sum, sets) => sum + sets, 0);
-  const completedSets = Object.values(weeklyVolume.data || {})
-    .reduce((sum, weeklySets) => sum + (weeklySets[currentWeekIndex] || 0), 0);
-
-  const startWeek = Math.max(0, currentWeekIndex - 3);
-  const trend = Array.from({ length: currentWeekIndex - startWeek + 1 }, (_, offset) => {
-    const weekIndex = startWeek + offset;
-    return Object.values(weeklyVolume.data || {})
-      .reduce((sum, weeklySets) => sum + (weeklySets[weekIndex] || 0), 0);
-  });
-
-  return {
-    targetSets,
-    completedSets,
-    remainingSets: Math.max(targetSets - completedSets, 0),
-    trend,
-  };
-}
-
-function WeeklySummaryCard({ weeklyVolume }: { weeklyVolume: WeeklyVolumeData | null }) {
-  const { targetSets, completedSets, remainingSets, trend } = getWeeklyVolumeStats(weeklyVolume);
-  const pct = targetSets > 0 ? Math.min(completedSets / targetSets, 1) : 0.18;
-  const endAngle = Math.PI + Math.PI * Math.max(pct, 0.18);
-  const center = { x: 70, y: 76 };
-  const radius = 52;
-  const arcStart = { x: center.x - radius, y: center.y };
-  const arcEnd = {
-    x: center.x + Math.cos(endAngle) * radius,
-    y: center.y + Math.sin(endAngle) * radius,
-  };
-  const arcPath = `M ${center.x - radius} ${center.y} A ${radius} ${radius} 0 0 1 ${center.x + radius} ${center.y}`;
-  const progressPath = `M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`;
-  const sparkPoints = buildSparklinePoints(trend);
-  const sparkFillPoints = `${sparkPoints} 126,44 6,44`;
-  const statusText = targetSets === 0
-    ? 'Set a weekly target'
-    : completedSets >= targetSets
-      ? completedSets > targetSets
-        ? `${completedSets - targetSets} sets above target`
-        : 'Target hit'
-      : `${remainingSets} sets remaining`;
-
-  return (
-    <View style={styles.summaryCard}>
-      <View style={styles.gaugeWrap}>
-        <Svg width={138} height={84}>
-          <Path d={arcPath} stroke={COLORS.bg_input} strokeWidth={14} fill="none" strokeLinecap="butt" />
-          <Path d={progressPath} stroke={COLORS.accent_primary} strokeWidth={14} fill="none" strokeLinecap="butt" />
-        </Svg>
-        <Text style={styles.gaugeValue}>{completedSets}</Text>
-        <Text style={styles.gaugeLabel}>Weekly Sets</Text>
-        <Text style={styles.gaugeSubLabel}>{targetSets > 0 ? `${targetSets} set target` : 'No target yet'}</Text>
-      </View>
-      <View style={styles.summaryCopy}>
-        <Text style={styles.summaryTitle}>Weekly Volume</Text>
-        <Text style={styles.summaryText}>{statusText}</Text>
-        <Svg width={130} height={44} style={styles.sparkline}>
-          <Defs>
-            <LinearGradient id="sparkGlow" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={COLORS.gold_primary} stopOpacity="0.22" />
-              <Stop offset="0.58" stopColor={COLORS.accent_primary} stopOpacity="0.08" />
-              <Stop offset="1" stopColor={COLORS.accent_primary} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Polygon
-            points={sparkFillPoints}
-            fill="url(#sparkGlow)"
-          />
-          <Polyline
-            points={sparkPoints}
-            fill="none"
-            stroke={COLORS.gold_primary}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {(() => {
-            const points = sparkPoints.split(' ');
-            const lastPoint = points[points.length - 1]?.split(',').map(Number) ?? [126, 8];
-            return <Circle cx={lastPoint[0]} cy={lastPoint[1]} r={3.5} fill={COLORS.gold_primary} />;
-          })()}
-        </Svg>
-        <Text style={styles.sparklineLabel}>Past {trend.length} weeks</Text>
-      </View>
-    </View>
-  );
-}
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const router = useRouter();
   // NUTRITION_HIDDEN: todayNutrition state removed
 
   const userQuery = useQuery({
@@ -381,124 +263,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: COLORS.text_primary,
     letterSpacing: -0.7,
-  },
-  subGreeting: {
-    fontSize: 13,
-    color: COLORS.text_secondary,
-    marginTop: 4,
-    marginBottom: SPACING.xl,
-  },
-  macroCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    marginBottom: SPACING.lg,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  quickAction: {
-    flex: 1,
-    paddingVertical: 14,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-  },
-  quickActionLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  settingsCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-  },
-  settingsLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  settingsChevron: {
-    color: COLORS.text_tertiary,
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-    marginBottom: 0,
-    overflow: 'hidden',
-  },
-  gaugeWrap: {
-    width: 138,
-    height: 100,
-    justifyContent: 'flex-end',
-  },
-  gaugeValue: {
-    position: 'absolute',
-    left: 42,
-    top: 40,
-    color: COLORS.gold_primary,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  gaugeLabel: {
-    color: COLORS.text_primary,
-    fontSize: 14,
-    fontWeight: '900',
-    marginTop: -8,
-  },
-  gaugeSubLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  summaryCopy: {
-    flex: 1,
-  },
-  summaryTitle: {
-    color: COLORS.text_primary,
-    fontSize: 15,
-    fontWeight: '900',
-    lineHeight: 19,
-  },
-  summaryText: {
-    color: COLORS.text_secondary,
-    fontSize: 12,
-    lineHeight: 15,
-    marginTop: 2,
-  },
-  sparkline: {
-    marginTop: SPACING.sm,
-    marginLeft: -4,
-  },
-  sparklineLabel: {
-    color: COLORS.text_tertiary,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: -2,
   },
 });

@@ -25,7 +25,6 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
         <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
           <View style={styles.workoutCardHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardLabel}>TODAY'S WORKOUT</Text>
               <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
             </View>
             <View style={styles.playButton}>
@@ -94,26 +93,12 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginBottom: SPACING.sm,
       },
-      cardLabel: {
-        color: COLORS.text_tertiary,
-        fontSize: 10,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 2,
-        fontWeight: '800',
-      },
       cardTitle: {
         color: COLORS.text_primary,
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: '900',
         letterSpacing: -0.6,
         textTransform: 'uppercase',
-      },
-      cardSubtitle: {
-        color: COLORS.text_secondary,
-        fontSize: 13,
-        fontWeight: '700',
-        marginTop: 2,
       },
       playButton: {
         width: 44,

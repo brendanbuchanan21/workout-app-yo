@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
@@ -91,10 +92,19 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
             style={styles.card}
             onPress={() => setExpandedId((current) => current === rec.id ? null : rec.id)}
           >
-            <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>
-              <Text style={[styles.icon, { color }]}>
-                {CATEGORY_ICONS[rec.category] || '?'}
-              </Text>
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>
+                <Text style={[styles.icon, { color }]}>
+                  {CATEGORY_ICONS[rec.category] || '?'}
+                </Text>
+              </View>
+              {isExpandable ? (
+                <Ionicons
+                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={COLORS.text_tertiary}
+                />
+              ) : null}
             </View>
             <View style={styles.textWrap}>
               <Text style={styles.title}>{rec.title}</Text>
@@ -106,11 +116,6 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
               {isExpanded && isExpandable ? (
                 <Text style={styles.detailExpanded}>
                   {fullMessage}
-                </Text>
-              ) : null}
-              {isExpandable ? (
-                <Text style={styles.expandHint}>
-                  {isExpanded ? 'Show less' : 'Tap for more'}
                 </Text>
               ) : null}
             </View>
@@ -150,13 +155,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 14,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
   iconWrap: {
     width: 32,
     height: 32,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.sm,
   },
   icon: {
     fontSize: 16,
@@ -189,11 +199,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     marginTop: 4,
-  },
-  expandHint: {
-    color: COLORS.gold_primary,
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: SPACING.sm,
   },
 });

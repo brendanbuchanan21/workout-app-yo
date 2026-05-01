@@ -63,10 +63,6 @@ function getWeeklyVolumeStats(weeklyVolume: WeeklyVolumeData | null) {
   }
 
 
-
-
-
-
 export default function WeeklySummaryCard({ weeklyVolume }: { weeklyVolume: WeeklyVolumeData | null }) {
     const { targetSets, completedSets, muscleRows } = getWeeklyVolumeStats(weeklyVolume);
     const pct = targetSets > 0 ? Math.min(completedSets / targetSets, 1) : 0.18;

@@ -19,10 +19,11 @@ function formatRelativeDate(dateStr: string): string {
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
 
+  // Future dates fall through to the absolute month/day format instead of producing "-245d ago".
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays > 0 && diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays > 0 && diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -54,11 +55,11 @@ export default function RecentPRs({ events }: RecentPRsProps) {
               <Text style={styles.exerciseName} numberOfLines={1}>
                 {event.exerciseName}
               </Text>
-              <Text style={styles.meta}>
-                {event.previousBest
-                  ? `prev: ${event.previousBest.reps} reps`
-                  : 'first time at weight'}
-              </Text>
+              {event.previousBest ? (
+                <Text style={styles.meta}>
+                  prev: {event.previousBest.reps} reps
+                </Text>
+              ) : null}
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.prValue}>

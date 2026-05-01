@@ -3,7 +3,6 @@ import { COLORS, SPACING, RADIUS } from "../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { TodayOverview, TodayContext } from "../../types/training";
-import { useState } from "react";
 
 type workoutInfo = {
   title: string;
@@ -21,10 +20,11 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
     const exerciseSummary = remainingCountExercises > 0 ? `${visibleExercises.join(', ')} + ${remainingCountExercises} more` : visibleExercises?.join(', ');
 
     return (
-    <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
+    <View style={styles.glowWrap}>
+        <View style={styles.borderGlow} />
+        <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
           <View style={styles.workoutCardHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardLabel}>TODAY'S WORKOUT</Text>
               <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
             </View>
             <View style={styles.playButton}>
@@ -36,57 +36,83 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
               />
             </View>
           </View>
-            <View style={{ flexDirection: 'row', gap: SPACING.sm}}>
-              <Text style={styles.muscleSummary}>{exerciseSummary}</Text>
-            </View>
-          
-          
+          {!!exerciseSummary && (
+            <Text style={styles.muscleSummary} numberOfLines={1}>{exerciseSummary}</Text>
+          )}
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
         </TouchableOpacity>
+    </View>
   );
 };
 
 export default TodaysWorkout;
 
 const styles = StyleSheet.create({
+    glowWrap: {
+        position: 'relative',
+        marginBottom: SPACING.md,
+        borderRadius: RADIUS.xl,
+      },
+      borderGlow: {
+        position: 'absolute',
+        top: -5,
+        left: -5,
+        right: -5,
+        bottom: -5,
+        borderRadius: RADIUS.xl + 5,
+        borderWidth: 1,
+        borderColor: 'rgba(232, 145, 45, 0.36)',
+        shadowColor: COLORS.accent_primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 18,
+        backgroundColor: 'transparent',
+      },
     workoutCard: {
         padding: SPACING.lg,
-        backgroundColor: COLORS.bg_secondary,
-        borderRadius: RADIUS.lg,
+        backgroundColor: COLORS.bg_elevated,
+        borderRadius: RADIUS.xl,
         borderWidth: 1,
-        borderColor: COLORS.border_subtle,
-        marginBottom: SPACING.md,
+        borderColor: 'rgba(232, 145, 45, 0.46)',
+        overflow: 'hidden',
+        shadowColor: COLORS.accent_primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.22,
+        shadowRadius: 12,
+        elevation: 8,
       },
       workoutCardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: SPACING.sm,
+        marginBottom: SPACING.md,
       },
       muscleSummary: {
         color: COLORS.text_secondary,
-        fontSize: 14,
-        fontWeight: '600',
-      },
-      cardLabel: {
-        color: COLORS.text_tertiary,
-        fontSize: 10,
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-        marginBottom: 2,
+        fontSize: 12,
+        fontWeight: '700',
+        marginBottom: SPACING.sm,
       },
       cardTitle: {
         color: COLORS.text_primary,
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 24,
+        fontWeight: '900',
+        letterSpacing: -0.6,
+        textTransform: 'uppercase',
       },
       playButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: COLORS.accent_primary,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(242,240,237,0.16)',
+        shadowColor: COLORS.accent_primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.45,
+        shadowRadius: 12,
       },
       playIconOffset: {
         marginLeft: 3,
@@ -98,8 +124,8 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.accent_primary,
       },
       workoutSubtext: {
-        color: COLORS.text_tertiary,
+        color: COLORS.text_secondary,
         fontSize: 12,
-        marginTop: SPACING.sm,
+        fontWeight: '800',
       },
 });

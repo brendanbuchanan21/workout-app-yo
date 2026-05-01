@@ -13,6 +13,11 @@ export const COLORS = {
   accent_subtle: 'rgba(232, 145, 45, 0.12)',
   accent_glow: 'rgba(232, 145, 45, 0.06)',
 
+  // Complementary gold for achievement/status copy
+  gold_primary: '#D6A84E',
+  gold_light: '#E2B866',
+  gold_subtle: 'rgba(214, 168, 78, 0.14)',
+
   // Text
   text_primary: '#F2F0ED',
   text_secondary: '#9B9A97',

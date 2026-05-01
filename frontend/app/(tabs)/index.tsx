@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
-import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
+import { COLORS, SPACING } from '../../src/constants/theme';
 import RecentPRs from '../../src/components/Home/RecentPRs';
 import RecommendationPanel from '../../src/components/Home/RecommendationPanel';
 import { PREvent, TodayContext, TodayOverview } from '../../src/types/training';
 import TodaysWorkout from '../../src/components/Home/todaysWorkout';
+import WeeklySummaryCard from '../../src/components/Home/weeklySummaryCard';
 // NUTRITION_HIDDEN: MacroRing import removed
 
 interface ActiveTrainingBlock {
@@ -23,17 +24,19 @@ interface ActiveTrainingBlock {
   workoutSessions: any[];
 }
 
+interface WeeklyVolumeData {
+  lengthWeeks: number;
+  currentWeek: number;
+  volumeTargets: Record<string, number>;
+  data: Record<string, (number | null)[]>;
+}
+
+
 // NUTRITION_HIDDEN: PHASE_LABELS removed
 
-const MUSCLE_LABELS: Record<string, string> = {
-  chest: 'Chest', back: 'Back', quads: 'Quads', hamstrings: 'Hamstrings',
-  side_delts: 'Side Delts', rear_delts: 'Rear Delts', biceps: 'Biceps',
-  triceps: 'Triceps', calves: 'Calves', abs: 'Abs', glutes: 'Glutes', traps: 'Traps',
-};
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const router = useRouter();
   // NUTRITION_HIDDEN: todayNutrition state removed
 
   const userQuery = useQuery({
@@ -72,6 +75,15 @@ export default function Dashboard() {
     },
   });
 
+  const weeklyVolumeQuery = useQuery<WeeklyVolumeData | null>({
+    queryKey: ['training', 'block-weekly-volume'],
+    queryFn: async () => {
+      const res = await apiGet('/training/block-weekly-volume');
+      if (!res.ok) return null;
+      return (await res.json()) as WeeklyVolumeData;
+    },
+  });
+
   const prFeedQuery = useQuery({
     queryKey: ['training', 'prs', 'feed'],
     queryFn: async () => {
@@ -97,6 +109,7 @@ export default function Dashboard() {
     blockQuery.refetch();
     todayQuery.refetch();
     todayOverviewQuery.refetch();
+    weeklyVolumeQuery.refetch();
     prFeedQuery.refetch();
     recsQuery.refetch();
   });
@@ -111,6 +124,7 @@ export default function Dashboard() {
   const recentPRs: PREvent[] = prFeedQuery.data ?? [];
   const recommendations = recsQuery.data ?? [];
   const todayOverview: TodayOverview | null = todayOverviewQuery.data ?? null;
+  const weeklyVolume: WeeklyVolumeData | null = weeklyVolumeQuery.data ?? null;
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -169,7 +183,6 @@ export default function Dashboard() {
   const weekLabel = trainingBlock
     ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}${phaseLabel ? ` · ${phaseLabel}` : ''}`
     : '';
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -183,23 +196,16 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Phase badge */}
-        <View style={styles.phaseBadge}>
-          <View style={styles.phaseDot} />
-          <Text style={styles.phaseText}>{weekLabel || 'TRAINING'}</Text>
+        <View style={styles.topRow}>
+          <Text style={styles.greeting}>Hey {user?.displayName || 'there'}</Text>
+          <View style={styles.phaseBadge}>
+            <View style={styles.phaseDot} />
+            <Text style={styles.phaseText}>{weekLabel || 'TRAINING'}</Text>
+          </View>
         </View>
-
-        {/* Greeting */}
-        <Text style={styles.greeting}>Hey {user?.displayName || 'there'}</Text>
-        <Text style={styles.subGreeting}>
-          {workoutInfo.isEmpty
-            ? 'No workout scheduled'
-            : workoutInfo.isBuildable
-              ? 'Pick a day and build your workout'
-              : `${workoutInfo.title} today`}
-        </Text>
         {/* Today's workout card */}
         <TodaysWorkout workoutInfo={workoutInfo} todayOverview={todayOverview} todayContext={today} />
+        <WeeklySummaryCard weeklyVolume={weeklyVolume} />
         
 
         {/* Recommendations */}
@@ -218,18 +224,26 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg_primary,
   },
   scroll: {
-    padding: SPACING.xl,
+    padding: SPACING.lg,
+    paddingBottom: 110,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   phaseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.accent_subtle,
+    paddingHorizontal: 11,
+    backgroundColor: 'rgba(232, 145, 45, 0.10)',
     borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 145, 45, 0.42)',
   },
   phaseDot: {
     width: 6,
@@ -238,71 +252,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent_primary,
   },
   phaseText: {
-    color: COLORS.accent_light,
-    fontSize: 12,
-    fontWeight: '600',
+    color: COLORS.gold_primary,
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 0.3,
   },
   greeting: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.text_primary,
-    letterSpacing: -0.3,
-  },
-  subGreeting: {
-    fontSize: 13,
-    color: COLORS.text_secondary,
-    marginTop: 4,
-    marginBottom: SPACING.xl,
-  },
-  macroCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    marginBottom: SPACING.lg,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  quickAction: {
     flex: 1,
-    paddingVertical: 14,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-  },
-  quickActionLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  settingsCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-  },
-  settingsLabel: {
-    color: COLORS.text_secondary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  settingsChevron: {
-    color: COLORS.text_tertiary,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.text_primary,
+    letterSpacing: -0.7,
   },
 });

@@ -19,10 +19,11 @@ function formatRelativeDate(dateStr: string): string {
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
 
+  // Future dates fall through to the absolute month/day format instead of producing "-245d ago".
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays > 0 && diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays > 0 && diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
@@ -47,15 +48,18 @@ export default function RecentPRs({ events }: RecentPRsProps) {
             key={i}
             style={[styles.row, i < top.length - 1 && styles.rowBorder]}
           >
+            <View style={styles.trophyWrap}>
+              <Text style={styles.trophy}>🏆</Text>
+            </View>
             <View style={styles.rowLeft}>
               <Text style={styles.exerciseName} numberOfLines={1}>
                 {event.exerciseName}
               </Text>
-              <Text style={styles.meta}>
-                {event.previousBest
-                  ? `prev: ${event.previousBest.reps} reps`
-                  : 'first time at weight'}
-              </Text>
+              {event.previousBest ? (
+                <Text style={styles.meta}>
+                  prev: {event.previousBest.reps} reps
+                </Text>
+              ) : null}
             </View>
             <View style={styles.rowRight}>
               <Text style={styles.prValue}>
@@ -73,6 +77,7 @@ export default function RecentPRs({ events }: RecentPRsProps) {
 const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   header: {
     flexDirection: 'row',
@@ -82,28 +87,28 @@ const styles = StyleSheet.create({
   },
   headerLabel: {
     color: COLORS.text_tertiary,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   seeAll: {
     color: COLORS.accent_light,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   card: {
-    backgroundColor: COLORS.bg_secondary,
+    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    paddingHorizontal: SPACING.lg,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   rowBorder: {
     borderBottomWidth: 1,
@@ -119,21 +124,35 @@ const styles = StyleSheet.create({
   exerciseName: {
     color: COLORS.text_primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     marginBottom: 2,
   },
   meta: {
-    color: COLORS.text_tertiary,
-    fontSize: 11,
+    color: COLORS.gold_primary,
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
   },
   prValue: {
-    color: COLORS.accent_primary,
+    color: COLORS.gold_primary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '900',
     marginBottom: 2,
   },
   date: {
     color: COLORS.text_tertiary,
     fontSize: 11,
+  },
+  trophyWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.gold_subtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  trophy: {
+    fontSize: 18,
   },
 });

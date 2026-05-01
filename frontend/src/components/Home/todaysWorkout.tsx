@@ -27,9 +27,6 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
             <View style={{ flex: 1 }}>
               <Text style={styles.cardLabel}>TODAY'S WORKOUT</Text>
               <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
-              <Text style={styles.cardSubtitle}>
-                {workoutInfo.isBuildable ? 'Build today' : `${workoutInfo.title} today`}
-              </Text>
             </View>
             <View style={styles.playButton}>
               <Ionicons

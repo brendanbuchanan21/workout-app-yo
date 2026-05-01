@@ -24,6 +24,13 @@ interface ActiveTrainingBlock {
   workoutSessions: any[];
 }
 
+interface WeeklyVolumeData {
+  lengthWeeks: number;
+  currentWeek: number;
+  volumeTargets: Record<string, number>;
+  data: Record<string, (number | null)[]>;
+}
+
 // NUTRITION_HIDDEN: PHASE_LABELS removed
 
 const MUSCLE_LABELS: Record<string, string> = {
@@ -32,9 +39,53 @@ const MUSCLE_LABELS: Record<string, string> = {
   triceps: 'Triceps', calves: 'Calves', abs: 'Abs', glutes: 'Glutes', traps: 'Traps',
 };
 
-function WeeklySummaryCard({ totalSets, completedSets }: { totalSets: number; completedSets: number }) {
-  const score = Math.max(0, totalSets * 20 + completedSets * 8);
-  const pct = totalSets > 0 ? Math.min(completedSets / totalSets, 1) : 0.18;
+function buildSparklinePoints(values: number[], width = 130, height = 44) {
+  const safeValues = values.length > 0 ? values : [0, 0, 0, 0];
+  const maxValue = Math.max(...safeValues, 1);
+  const minValue = Math.min(...safeValues, 0);
+  const range = Math.max(maxValue - minValue, 1);
+
+  return safeValues.map((value, index) => {
+    const x = 6 + (index / Math.max(safeValues.length - 1, 1)) * (width - 10);
+    const y = 8 + (1 - (value - minValue) / range) * (height - 16);
+    return `${Math.round(x)},${Math.round(y)}`;
+  }).join(' ');
+}
+
+function getWeeklyVolumeStats(weeklyVolume: WeeklyVolumeData | null) {
+  if (!weeklyVolume) {
+    return {
+      targetSets: 0,
+      completedSets: 0,
+      remainingSets: 0,
+      trend: [0, 0, 0, 0],
+    };
+  }
+
+  const currentWeekIndex = Math.max(0, weeklyVolume.currentWeek - 1);
+  const targetSets = Object.values(weeklyVolume.volumeTargets || {})
+    .reduce((sum, sets) => sum + sets, 0);
+  const completedSets = Object.values(weeklyVolume.data || {})
+    .reduce((sum, weeklySets) => sum + (weeklySets[currentWeekIndex] || 0), 0);
+
+  const startWeek = Math.max(0, currentWeekIndex - 3);
+  const trend = Array.from({ length: currentWeekIndex - startWeek + 1 }, (_, offset) => {
+    const weekIndex = startWeek + offset;
+    return Object.values(weeklyVolume.data || {})
+      .reduce((sum, weeklySets) => sum + (weeklySets[weekIndex] || 0), 0);
+  });
+
+  return {
+    targetSets,
+    completedSets,
+    remainingSets: Math.max(targetSets - completedSets, 0),
+    trend,
+  };
+}
+
+function WeeklySummaryCard({ weeklyVolume }: { weeklyVolume: WeeklyVolumeData | null }) {
+  const { targetSets, completedSets, remainingSets, trend } = getWeeklyVolumeStats(weeklyVolume);
+  const pct = targetSets > 0 ? Math.min(completedSets / targetSets, 1) : 0.18;
   const endAngle = Math.PI + Math.PI * Math.max(pct, 0.18);
   const center = { x: 70, y: 76 };
   const radius = 52;
@@ -45,6 +96,15 @@ function WeeklySummaryCard({ totalSets, completedSets }: { totalSets: number; co
   };
   const arcPath = `M ${center.x - radius} ${center.y} A ${radius} ${radius} 0 0 1 ${center.x + radius} ${center.y}`;
   const progressPath = `M ${arcStart.x} ${arcStart.y} A ${radius} ${radius} 0 0 1 ${arcEnd.x} ${arcEnd.y}`;
+  const sparkPoints = buildSparklinePoints(trend);
+  const sparkFillPoints = `${sparkPoints} 126,44 6,44`;
+  const statusText = targetSets === 0
+    ? 'Set a weekly target'
+    : completedSets >= targetSets
+      ? completedSets > targetSets
+        ? `${completedSets - targetSets} sets above target`
+        : 'Target hit'
+      : `${remainingSets} sets remaining`;
 
   return (
     <View style={styles.summaryCard}>
@@ -53,13 +113,13 @@ function WeeklySummaryCard({ totalSets, completedSets }: { totalSets: number; co
           <Path d={arcPath} stroke={COLORS.bg_input} strokeWidth={14} fill="none" strokeLinecap="butt" />
           <Path d={progressPath} stroke={COLORS.accent_primary} strokeWidth={14} fill="none" strokeLinecap="butt" />
         </Svg>
-        <Text style={styles.gaugeValue}>{score}</Text>
-        <Text style={styles.gaugeLabel}>Strength Trend</Text>
-        <Text style={styles.gaugeSubLabel}>Past 4 weeks</Text>
+        <Text style={styles.gaugeValue}>{completedSets}</Text>
+        <Text style={styles.gaugeLabel}>Weekly Sets</Text>
+        <Text style={styles.gaugeSubLabel}>{targetSets > 0 ? `${targetSets} set target` : 'No target yet'}</Text>
       </View>
       <View style={styles.summaryCopy}>
-        <Text style={styles.summaryTitle}>Weekly Volume Summary</Text>
-        <Text style={styles.summaryText}>Current overall weekly progress</Text>
+        <Text style={styles.summaryTitle}>Weekly Volume</Text>
+        <Text style={styles.summaryText}>{statusText}</Text>
         <Svg width={130} height={44} style={styles.sparkline}>
           <Defs>
             <LinearGradient id="sparkGlow" x1="0" y1="0" x2="0" y2="1">
@@ -69,19 +129,24 @@ function WeeklySummaryCard({ totalSets, completedSets }: { totalSets: number; co
             </LinearGradient>
           </Defs>
           <Polygon
-            points="6,34 34,26 60,16 86,21 110,15 126,8 126,44 6,44"
+            points={sparkFillPoints}
             fill="url(#sparkGlow)"
           />
           <Polyline
-            points="6,34 34,26 60,16 86,21 110,15 126,8"
+            points={sparkPoints}
             fill="none"
             stroke={COLORS.gold_primary}
             strokeWidth={3}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <Circle cx={126} cy={8} r={3.5} fill={COLORS.gold_primary} />
+          {(() => {
+            const points = sparkPoints.split(' ');
+            const lastPoint = points[points.length - 1]?.split(',').map(Number) ?? [126, 8];
+            return <Circle cx={lastPoint[0]} cy={lastPoint[1]} r={3.5} fill={COLORS.gold_primary} />;
+          })()}
         </Svg>
+        <Text style={styles.sparklineLabel}>Past {trend.length} weeks</Text>
       </View>
     </View>
   );
@@ -128,6 +193,15 @@ export default function Dashboard() {
     },
   });
 
+  const weeklyVolumeQuery = useQuery<WeeklyVolumeData | null>({
+    queryKey: ['training', 'block-weekly-volume'],
+    queryFn: async () => {
+      const res = await apiGet('/training/block-weekly-volume');
+      if (!res.ok) return null;
+      return (await res.json()) as WeeklyVolumeData;
+    },
+  });
+
   const prFeedQuery = useQuery({
     queryKey: ['training', 'prs', 'feed'],
     queryFn: async () => {
@@ -153,6 +227,7 @@ export default function Dashboard() {
     blockQuery.refetch();
     todayQuery.refetch();
     todayOverviewQuery.refetch();
+    weeklyVolumeQuery.refetch();
     prFeedQuery.refetch();
     recsQuery.refetch();
   });
@@ -167,6 +242,7 @@ export default function Dashboard() {
   const recentPRs: PREvent[] = prFeedQuery.data ?? [];
   const recommendations = recsQuery.data ?? [];
   const todayOverview: TodayOverview | null = todayOverviewQuery.data ?? null;
+  const weeklyVolume: WeeklyVolumeData | null = weeklyVolumeQuery.data ?? null;
 
   // Determine workout card content
   const getWorkoutInfo = () => {
@@ -225,15 +301,6 @@ export default function Dashboard() {
   const weekLabel = trainingBlock
     ? `WEEK ${trainingBlock.currentWeek} OF ${trainingBlock.lengthWeeks}${phaseLabel ? ` · ${phaseLabel}` : ''}`
     : '';
-  const todaysSessionsForProgress = trainingBlock?.workoutSessions?.filter(
-    (session: any) => today && session.weekNumber === today.weekNumber && session.dayLabel === today.dayLabel
-  ) ?? [];
-  const totalSets = todayOverview?.totalWorkoutSets ?? 0;
-  const completedSets = todaysSessionsForProgress
-    ?.flatMap((session: any) => session.exercises || [])
-    ?.flatMap((exercise: any) => exercise.sets || [])
-    ?.filter((set: any) => set.completed).length ?? 0;
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -256,7 +323,7 @@ export default function Dashboard() {
         </View>
         {/* Today's workout card */}
         <TodaysWorkout workoutInfo={workoutInfo} todayOverview={todayOverview} todayContext={today} />
-        <WeeklySummaryCard totalSets={totalSets} completedSets={completedSets} />
+        <WeeklySummaryCard weeklyVolume={weeklyVolume} />
         
 
         {/* Recommendations */}
@@ -427,5 +494,11 @@ const styles = StyleSheet.create({
   sparkline: {
     marginTop: SPACING.sm,
     marginLeft: -4,
+  },
+  sparklineLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: -2,
   },
 });

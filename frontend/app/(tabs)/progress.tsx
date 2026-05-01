@@ -15,7 +15,8 @@ import StrengthTab from '../../src/components/Progress/StrengthTab';
 import VolumeTab from '../../src/components/Progress/VolumeTab';
 import ActivityTab from '../../src/components/Progress/ActivityTab';
 import WeightTab from '../../src/components/Progress/WeightTab';
-import InsightsTab from '../../src/components/Progress/InsightsTab';
+import OverviewTab from '../../src/components/Progress/OverviewTab';
+import MuscleGroupsTab from '../../src/components/Progress/MuscleGroupsTab';
 
 interface WeightEntry {
   date: string;
@@ -46,19 +47,13 @@ interface MuscleGroupComparison {
   previous: VolumeData | null;
 }
 
-type TabKey = 'insights' | 'prs' | 'strength' | 'volume' | 'activity' | 'weight';
+type TabKey = 'summary' | 'muscleGroups' | 'exercises' | 'records' | 'volume' | 'activity' | 'weight';
 
 export default function Progress() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>('insights');
-  const [volumeInitialMuscle, setVolumeInitialMuscle] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>('summary');
   const [newWeight, setNewWeight] = useState('');
-
-  const jumpToMuscleVolume = (muscle: string) => {
-    setVolumeInitialMuscle(muscle);
-    setTab('volume');
-  };
 
   const weightQuery = useQuery({
     queryKey: ['weight'],
@@ -146,11 +141,10 @@ export default function Progress() {
 
         <View style={styles.tabRow}>
           {([
-            ['insights', 'Insights'],
-            ['prs', 'PRs'],
-            ['strength', 'Strength'],
-            ['volume', 'Volume'],
-            ['activity', 'Activity'],
+            ['summary', 'Summary'],
+            ['muscleGroups', 'Muscle Groups'],
+            ['exercises', 'Exercises'],
+            ['records', 'Records'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <TouchableOpacity
               key={key}
@@ -162,9 +156,18 @@ export default function Progress() {
           ))}
         </View>
 
-        {tab === 'insights' && <InsightsTab onJumpToMuscleVolume={jumpToMuscleVolume} />}
-        {tab === 'prs' && <PRsTab />}
-        {tab === 'strength' && (
+        {tab === 'summary' && (
+          <OverviewTab
+            onViewDetail={(catalogId, exerciseName) =>
+              router.push({ pathname: '/exercise-detail', params: { catalogId, exerciseName } })
+            }
+          />
+        )}
+        {tab === 'muscleGroups' && (
+          <MuscleGroupsTab muscleGroups={exerciseVolume.muscleGroups} />
+        )}
+        {tab === 'records' && <PRsTab />}
+        {tab === 'exercises' && (
               <StrengthTab
                 onViewDetail={(catalogId, exerciseName) =>
                   router.push({ pathname: '/exercise-detail', params: { catalogId, exerciseName } })
@@ -172,10 +175,17 @@ export default function Progress() {
               />
             )}
         {tab === 'volume' && (
-          <VolumeTab exerciseComparison={exerciseVolume} initialMuscle={volumeInitialMuscle} />
+          <VolumeTab exerciseComparison={exerciseVolume} initialMuscle={null} />
         )}
         {tab === 'activity' && <ActivityTab activity={activity} />}
-        {tab === 'weight' && <WeightTab entries={entries} newWeight={newWeight} setNewWeight={setNewWeight} handleLogWeight={handleLogWeight} />}
+        {tab === 'weight' && (
+          <WeightTab
+            entries={entries}
+            newWeight={newWeight}
+            setNewWeight={setNewWeight}
+            handleLogWeight={handleLogWeight}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

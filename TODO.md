@@ -38,3 +38,7 @@
 [ ] Build as you go should maybe not be fixed to a workout split. should probably be able to do whatever you want
 
 [ ] Need to fix the custom workout plan as you go building the workouts. the ui looks trash and does not function how it should yet
+
+[ ] Need to fix the whole body weight thing because you could be 10 lbs lighter and hit more reps but it might not be an actual pr. we need to take into account body weight entry. 
+
+[ ] Perhaps we need to add tempo into each exercise mix to make sure that we get a more accurate 1rm estimate.

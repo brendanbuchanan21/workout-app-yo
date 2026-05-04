@@ -10,7 +10,7 @@ import { EnrichedExerciseHistory } from '../../types/training';
 import { ExerciseProgression } from '../../utils/progressionInsights';
 import ProgressionBadge from './ProgressionBadge';
 
-interface OverviewTabProps {
+interface SummaryTabProps {
   onViewDetail?: (catalogId: string, exerciseName: string) => void;
 }
 
@@ -215,7 +215,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function OverviewTab({ onViewDetail }: OverviewTabProps) {
+export default function SummaryTab({ onViewDetail }: SummaryTabProps) {
   const historyQuery = useQuery({
     queryKey: ['training', 'exercise-history'],
     queryFn: async () => {

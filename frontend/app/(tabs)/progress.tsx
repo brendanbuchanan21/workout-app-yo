@@ -15,7 +15,7 @@ import ExercisesTab from '../../src/components/Progress/ExercisesTab';
 import VolumeTab from '../../src/components/Progress/VolumeTab';
 import ActivityTab from '../../src/components/Progress/ActivityTab';
 import WeightTab from '../../src/components/Progress/WeightTab';
-import OverviewTab from '../../src/components/Progress/OverviewTab';
+import SummaryTab from '../../src/components/Progress/SummaryTab';
 import MuscleGroupsTab from '../../src/components/Progress/MuscleGroupsTab';
 
 interface WeightEntry {
@@ -163,7 +163,7 @@ export default function Progress() {
         </View>
 
         {tab === 'summary' && (
-          <OverviewTab
+          <SummaryTab
             onViewDetail={(catalogId, exerciseName) =>
               router.push({ pathname: '/exercise-detail', params: { catalogId, exerciseName } })
             }

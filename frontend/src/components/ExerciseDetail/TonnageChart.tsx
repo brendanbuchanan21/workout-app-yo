@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { TimeRange } from './TimeRangePicker';
 
 interface Session {
   date: string;
@@ -10,40 +11,55 @@ interface Session {
 
 interface TonnageChartProps {
   sessions: Session[];
+  range: TimeRange;
 }
 
 const screenWidth = Dimensions.get('window').width;
 
-function formatLabel(date: string): string {
-  const d = new Date(date + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short' });
+function formatMonthLabel(date: string, includeYear: boolean): string {
+  const d = new Date(`${date}T12:00:00`);
+  const month = d.toLocaleDateString('en-US', { month: 'short' });
+  if (!includeYear) return month;
+  return `${month} '${String(d.getFullYear()).slice(-2)}`;
 }
 
-export default function TonnageChart({ sessions }: TonnageChartProps) {
+export default function TonnageChart({ sessions, range }: TonnageChartProps) {
   if (sessions.length < 2) return null;
 
+  const sortedSessions = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   const chartWidth = screenWidth - SPACING.xl * 2;
   const chartHeight = 160;
   const padding = { top: 10, right: 15, bottom: 25, left: 50 };
   const innerW = chartWidth - padding.left - padding.right;
   const innerH = chartHeight - padding.top - padding.bottom;
 
-  const tonnages = sessions.map((s) => s.totalTonnageKg);
+  const tonnages = sortedSessions.map((s) => s.totalTonnageKg);
   const maxT = Math.max(...tonnages) * 1.1;
-  const barWidth = Math.max(4, Math.min(20, (innerW / sessions.length) * 0.7));
-  const barGap = (innerW - barWidth * sessions.length) / Math.max(sessions.length - 1, 1);
+  const barWidth = Math.max(4, Math.min(20, (innerW / sortedSessions.length) * 0.7));
+  const barGap = (innerW - barWidth * sortedSessions.length) / Math.max(sortedSessions.length - 1, 1);
+  const spansYears = sortedSessions[0].date.slice(0, 4) !== sortedSessions[sortedSessions.length - 1].date.slice(0, 4);
 
-  // Monthly x-axis labels
   const monthLabels: { x: number; label: string }[] = [];
   let lastMonth = '';
-  for (let i = 0; i < sessions.length; i++) {
-    const label = formatLabel(sessions[i].date);
-    if (label !== lastMonth) {
-      const x = padding.left + i * (barWidth + barGap) + barWidth / 2;
-      monthLabels.push({ x, label });
-      lastMonth = label;
+  for (let i = 0; i < sortedSessions.length; i++) {
+    const monthKey = sortedSessions[i].date.slice(0, 7);
+    if (monthKey !== lastMonth) {
+      monthLabels.push({
+        x: padding.left + i * (barWidth + barGap) + barWidth / 2,
+        label: formatMonthLabel(sortedSessions[i].date, spansYears || range === 'all'),
+      });
+      lastMonth = monthKey;
     }
   }
+
+  const maxLabels = 4;
+  const xLabels = monthLabels.length <= maxLabels
+    ? monthLabels
+    : monthLabels.filter((_, index) => (
+      index === 0
+      || index === monthLabels.length - 1
+      || index % Math.ceil(monthLabels.length / maxLabels) === 0
+    ));
 
   return (
     <View style={styles.container}>
@@ -78,11 +94,11 @@ export default function TonnageChart({ sessions }: TonnageChartProps) {
           })}
 
           {/* Bars */}
-          {sessions.map((s, i) => {
+          {sortedSessions.map((s, i) => {
             const barHeight = maxT > 0 ? (s.totalTonnageKg / maxT) * innerH : 0;
             const x = padding.left + i * (barWidth + barGap);
             const y = padding.top + innerH - barHeight;
-            const isLast = i === sessions.length - 1;
+            const isLast = i === sortedSessions.length - 1;
 
             return (
               <Rect
@@ -99,7 +115,7 @@ export default function TonnageChart({ sessions }: TonnageChartProps) {
           })}
 
           {/* X-axis labels */}
-          {monthLabels.map(({ x, label }, i) => (
+          {xLabels.map(({ x, label }, i) => (
             <SvgText
               key={`xl${i}`}
               x={x}

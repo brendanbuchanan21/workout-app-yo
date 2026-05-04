@@ -148,13 +148,14 @@ export default function ExerciseDetailScreen() {
             <E1rmChart
               sessions={detail.sessions}
               peakE1rmKg={detail.summary.peakE1rmKg}
+              range={range}
             />
 
             {detail.periodComparison && (
               <PeriodComparison {...detail.periodComparison} range={range} />
             )}
 
-            <TonnageChart sessions={detail.sessions} />
+            <TonnageChart sessions={detail.sessions} range={range} />
 
             <SessionList
               sessions={detail.sessions}
@@ -166,7 +167,7 @@ export default function ExerciseDetailScreen() {
           <>
             <VolumeSummaryStats sessions={detail.sessions} />
 
-            <TonnageChart sessions={detail.sessions} />
+            <TonnageChart sessions={detail.sessions} range={range} />
 
             {detail.periodComparison && (
               <VolumePeriodComparison

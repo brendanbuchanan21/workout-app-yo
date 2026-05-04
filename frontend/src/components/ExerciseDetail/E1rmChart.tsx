@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { TimeRange } from './TimeRangePicker';
+import { getDateDomain, getDateTicks, getDateX } from './chartAxis';
 
 interface Session {
   date: string;
@@ -12,53 +14,39 @@ interface Session {
 interface E1rmChartProps {
   sessions: Session[];
   peakE1rmKg: number;
+  range: TimeRange;
 }
 
 const screenWidth = Dimensions.get('window').width;
 
-function formatLabel(date: string): string {
-  const d = new Date(date + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short' });
-}
-
-export default function E1rmChart({ sessions, peakE1rmKg }: E1rmChartProps) {
+export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProps) {
   if (sessions.length < 2) return null;
 
+  const sortedSessions = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   const chartWidth = screenWidth - SPACING.xl * 2;
   const chartHeight = 200;
   const padding = { top: 15, right: 15, bottom: 25, left: 50 };
   const innerW = chartWidth - padding.left - padding.right;
   const innerH = chartHeight - padding.top - padding.bottom;
 
-  const e1rms = sessions.map((s) => s.e1rmKg);
+  const { start, end, spansYears } = getDateDomain(sortedSessions.map((s) => s.date), range);
+  const xLabels = getDateTicks(start, end, padding.left, innerW, spansYears || range === 'all');
+
+  const e1rms = sortedSessions.map((s) => s.e1rmKg);
   const minE = Math.min(...e1rms) * 0.95;
   const maxE = Math.max(...e1rms) * 1.05;
-  const range = maxE - minE || 1;
+  const e1rmRange = maxE - minE || 1;
 
-  const dataPoints = sessions.map((s, i) => ({
-    x: padding.left + (i / Math.max(sessions.length - 1, 1)) * innerW,
-    y: padding.top + (1 - (s.e1rmKg - minE) / range) * innerH,
+  const dataPoints = sortedSessions.map((s) => ({
+    x: getDateX(s.date, start, end, padding.left, innerW),
+    y: padding.top + (1 - (s.e1rmKg - minE) / e1rmRange) * innerH,
     isPR: s.isPR,
   }));
 
   const polylinePoints = dataPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
   // Peak e1RM dashed line
-  const peakY = padding.top + (1 - (peakE1rmKg - minE) / range) * innerH;
-
-  // Monthly x-axis labels (deduplicated)
-  const monthLabels: { x: number; label: string }[] = [];
-  let lastMonth = '';
-  for (let i = 0; i < sessions.length; i++) {
-    const label = formatLabel(sessions[i].date);
-    if (label !== lastMonth) {
-      monthLabels.push({
-        x: padding.left + (i / Math.max(sessions.length - 1, 1)) * innerW,
-        label,
-      });
-      lastMonth = label;
-    }
-  }
+  const peakY = padding.top + (1 - (peakE1rmKg - minE) / e1rmRange) * innerH;
 
   return (
     <View style={styles.container}>
@@ -68,7 +56,7 @@ export default function E1rmChart({ sessions, peakE1rmKg }: E1rmChartProps) {
           {/* Y-axis grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((frac, i) => {
             const y = padding.top + (1 - frac) * innerH;
-            const val = minE + frac * range;
+            const val = minE + frac * e1rmRange;
             return (
               <Line
                 key={`g${i}`}
@@ -85,7 +73,7 @@ export default function E1rmChart({ sessions, peakE1rmKg }: E1rmChartProps) {
           {/* Y-axis labels */}
           {[0, 0.5, 1].map((frac, i) => {
             const y = padding.top + (1 - frac) * innerH;
-            const val = minE + frac * range;
+            const val = minE + frac * e1rmRange;
             return (
               <SvgText
                 key={`yl${i}`}
@@ -112,7 +100,7 @@ export default function E1rmChart({ sessions, peakE1rmKg }: E1rmChartProps) {
           />
 
           {/* X-axis month labels */}
-          {monthLabels.map(({ x, label }, i) => (
+          {xLabels.map(({ x, label }, i) => (
             <SvgText
               key={`xl${i}`}
               x={x}

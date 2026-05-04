@@ -77,6 +77,7 @@ export async function getExerciseDetail(
   range: Range
 ): Promise<ExerciseDetailResult | null> {
   const rangeDate = getRangeDate(range);
+  const today = new Date();
 
   const [catalog, sets] = await Promise.all([
     prisma.exerciseCatalog.findFirst({
@@ -95,7 +96,10 @@ export async function getExerciseDetail(
           workoutSession: {
             userId,
             completedAt: { not: null },
-            ...(rangeDate ? { date: { gte: rangeDate } } : {}),
+            date: {
+              ...(rangeDate ? { gte: rangeDate } : {}),
+              lte: today,
+            },
           },
         },
       },

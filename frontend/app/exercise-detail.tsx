@@ -15,6 +15,9 @@ import E1rmChart from '../src/components/ExerciseDetail/E1rmChart';
 import PeriodComparison from '../src/components/ExerciseDetail/PeriodComparison';
 import TonnageChart from '../src/components/ExerciseDetail/TonnageChart';
 import SessionList from '../src/components/ExerciseDetail/SessionList';
+import VolumeSummaryStats from '../src/components/ExerciseDetail/VolumeSummaryStats';
+import VolumePeriodComparison from '../src/components/ExerciseDetail/VolumePeriodComparison';
+import VolumeSessionList from '../src/components/ExerciseDetail/VolumeSessionList';
 
 interface ExerciseDetail {
   exercise: {
@@ -54,10 +57,13 @@ interface ExerciseDetail {
   prs: { weightKg: number; reps: number; date: string }[];
 }
 
+type DetailView = 'strength' | 'volume';
+
 export default function ExerciseDetailScreen() {
   const router = useRouter();
   const { catalogId, exerciseName } = useLocalSearchParams<{ catalogId: string; exerciseName: string }>();
   const [range, setRange] = useState<TimeRange>('6m');
+  const [view, setView] = useState<DetailView>('strength');
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -104,6 +110,24 @@ export default function ExerciseDetailScreen() {
 
         <TimeRangePicker selected={range} onSelect={setRange} />
 
+        <View style={styles.viewTabs}>
+          {([
+            ['strength', 'Strength'],
+            ['volume', 'Volume'],
+          ] as [DetailView, string][]).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.viewTab, view === key && styles.viewTabActive]}
+              activeOpacity={0.75}
+              onPress={() => setView(key)}
+            >
+              <Text style={[styles.viewTabText, view === key && styles.viewTabTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {!detail || detail.sessions.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Data</Text>
@@ -111,7 +135,7 @@ export default function ExerciseDetailScreen() {
               No completed sessions found for this time range. Try selecting a longer period.
             </Text>
           </View>
-        ) : (
+        ) : view === 'strength' ? (
           <>
             <SummaryStats
               currentE1rmKg={detail.summary.currentE1rmKg}
@@ -137,6 +161,21 @@ export default function ExerciseDetailScreen() {
               expandedSession={expandedSession}
               onToggle={(date) => setExpandedSession(date || null)}
             />
+          </>
+        ) : (
+          <>
+            <VolumeSummaryStats sessions={detail.sessions} />
+
+            <TonnageChart sessions={detail.sessions} />
+
+            {detail.periodComparison && (
+              <VolumePeriodComparison
+                startAvgTonnageKg={detail.periodComparison.startAvgTonnageKg}
+                endAvgTonnageKg={detail.periodComparison.endAvgTonnageKg}
+              />
+            )}
+
+            <VolumeSessionList sessions={detail.sessions} />
           </>
         )}
       </ScrollView>
@@ -176,6 +215,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: SPACING.lg,
     textTransform: 'capitalize',
+  },
+  viewTabs: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: 12,
+    padding: 3,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
+  viewTab: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewTabActive: {
+    backgroundColor: COLORS.bg_input,
+  },
+  viewTabText: {
+    color: COLORS.text_tertiary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  viewTabTextActive: {
+    color: COLORS.text_primary,
   },
   emptyState: {
     alignItems: 'center',

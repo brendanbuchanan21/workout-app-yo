@@ -11,7 +11,7 @@ import { apiGet, apiPost } from '../../src/utils/api';
 import { useRefreshOnFocus } from '../../src/hooks/useRefreshOnFocus';
 import { COLORS, SPACING, RADIUS } from '../../src/constants/theme';
 import PRsTab from '../../src/components/Progress/PRsTab';
-import StrengthTab from '../../src/components/Progress/StrengthTab';
+import ExercisesTab from '../../src/components/Progress/ExercisesTab';
 import VolumeTab from '../../src/components/Progress/VolumeTab';
 import ActivityTab from '../../src/components/Progress/ActivityTab';
 import WeightTab from '../../src/components/Progress/WeightTab';
@@ -142,7 +142,7 @@ export default function Progress() {
         <View style={styles.tabRow}>
           {([
             ['summary', 'Summary'],
-            ['muscleGroups', 'Muscle Groups'],
+            ['muscleGroups', 'Muscles'],
             ['exercises', 'Exercises'],
             ['records', 'Records'],
           ] as [TabKey, string][]).map(([key, label]) => (
@@ -150,8 +150,14 @@ export default function Progress() {
               key={key}
               style={[styles.tab, tab === key && styles.tabActive]}
               onPress={() => setTab(key)}
+              activeOpacity={0.85}
             >
-              <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+              <Text
+                style={[styles.tabText, tab === key && styles.tabTextActive]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -168,7 +174,7 @@ export default function Progress() {
         )}
         {tab === 'records' && <PRsTab />}
         {tab === 'exercises' && (
-              <StrengthTab
+              <ExercisesTab
                 onViewDetail={(catalogId, exerciseName) =>
                   router.push({ pathname: '/exercise-detail', params: { catalogId, exerciseName } })
                 }
@@ -208,16 +214,23 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.md,
-    padding: 3,
+    padding: SPACING.xs,
     marginBottom: SPACING.xl,
   },
   tab: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 40,
     paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   tabActive: {
     backgroundColor: COLORS.bg_input,
@@ -226,6 +239,8 @@ const styles = StyleSheet.create({
     color: COLORS.text_tertiary,
     fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   tabTextActive: {
     color: COLORS.text_primary,

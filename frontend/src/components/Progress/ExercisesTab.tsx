@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
@@ -110,6 +111,22 @@ function computeE1rmData(exercises: EnrichedExerciseHistory[]): ExerciseWithE1rm
     .sort((a, b) => b.peakE1rm - a.peakE1rm);
 }
 
+function getSignalCopy(progression?: ExerciseProgression): string {
+  if (!progression) return 'Open strength and volume details';
+  if (progression.detail) return progression.detail;
+  if (progression.status === 'progressing') return 'Recent performance is moving up';
+  if (progression.status === 'regressing') return 'Recent performance is trending down';
+  return 'Recent performance is mostly flat';
+}
+
+function getSignalMeta(ex: ExerciseWithE1rm, progression?: ExerciseProgression): string {
+  if (!progression) {
+    return `${ex.history.length} session${ex.history.length !== 1 ? 's' : ''}`;
+  }
+
+  return `${progression.sessionsAnalyzed} sessions analyzed · ${progression.confidence} confidence`;
+}
+
 function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, phaseIntent }: {
   ex: ExerciseWithE1rm;
   isExpanded: boolean;
@@ -118,10 +135,17 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
   progression?: ExerciseProgression;
   phaseIntent?: string | null;
 }) {
+  const opensDetail = !!onViewDetail && !!ex.catalogId;
+  const signalCopy = getSignalCopy(progression);
+  const signalMeta = getSignalMeta(ex, progression);
+
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={onToggle}
+      onPress={() => {
+        if (opensDetail) onViewDetail(ex.catalogId!, ex.exerciseName);
+        else onToggle();
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
@@ -134,23 +158,27 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
             {progression && <ProgressionBadge status={progression.status} phaseIntent={phaseIntent} />}
           </View>
           <Text style={styles.cardMeta}>
-            {ex.history.length} session{ex.history.length !== 1 ? 's' : ''}
+            {signalCopy}
+          </Text>
+          <Text style={styles.cardSubMeta}>
+            {signalMeta}
           </Text>
         </View>
         <View style={styles.cardBest}>
+          <Text style={styles.cardBestLabel}>Latest e1RM</Text>
           <Text style={styles.cardWeight}>{formatWeight(ex.latestE1rm)}</Text>
-          {ex.trending !== 0 && (
-            <Text style={[
-              styles.e1rmTrend,
-              { color: ex.trending > 0 ? COLORS.success : COLORS.danger },
-            ]}>
-              {ex.trending > 0 ? '+' : ''}{formatWeight(Math.abs(ex.trending))}
-            </Text>
-          )}
         </View>
+        {opensDetail && (
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={COLORS.text_tertiary}
+            style={styles.detailChevron}
+          />
+        )}
       </View>
 
-      {isExpanded && (
+      {!opensDetail && isExpanded && (
         <View style={styles.expanded}>
           {ex.history.length > 1 && renderE1rmChart(ex)}
 
@@ -262,13 +290,16 @@ function EquipmentGroupedList({ exercises, expandedExercise, onToggle, onViewDet
   );
 }
 
-interface StrengthTabProps {
+interface ExercisesTabProps {
   onViewDetail?: (catalogId: string, exerciseName: string) => void;
 }
 
-export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
+type ExerciseMode = 'attention' | 'improving' | 'all';
+
+export default function ExercisesTab({ onViewDetail }: ExercisesTabProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [mode, setMode] = useState<ExerciseMode>('attention');
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
   const historyQuery = useQuery({
@@ -343,33 +374,90 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
   const muscleFiltered = selectedMuscle
     ? allE1rms.filter((e) => e.primaryMuscle === selectedMuscle)
     : allE1rms;
+  const attentionExercises = allE1rms
+    .filter((e) => {
+      const key = e.catalogId || e.exerciseName;
+      const progression = progressionMap.get(key);
+      return progression?.status === 'regressing' || progression?.status === 'stalled';
+    })
+    .sort((a, b) => {
+      const aProgression = progressionMap.get(a.catalogId || a.exerciseName);
+      const bProgression = progressionMap.get(b.catalogId || b.exerciseName);
+      const aRank = aProgression?.status === 'regressing' ? 0 : 1;
+      const bRank = bProgression?.status === 'regressing' ? 0 : 1;
+      return aRank - bRank || Math.abs(bProgression?.e1rmChangePercent || 0) - Math.abs(aProgression?.e1rmChangePercent || 0);
+    });
+  const improvingExercises = allE1rms
+    .filter((e) => {
+      const key = e.catalogId || e.exerciseName;
+      return progressionMap.get(key)?.status === 'progressing';
+    })
+    .sort((a, b) => {
+      const aProgression = progressionMap.get(a.catalogId || a.exerciseName);
+      const bProgression = progressionMap.get(b.catalogId || b.exerciseName);
+      return (bProgression?.e1rmChangePercent || 0) - (aProgression?.e1rmChangePercent || 0);
+    });
+  const allModeActive = mode === 'all';
+  const modeExercises = mode === 'attention'
+    ? attentionExercises
+    : mode === 'improving'
+      ? improvingExercises
+      : muscleFiltered;
+  const visibleExercises = allModeActive && searchActive ? searchResults : modeExercises;
+  const emptyModeCopy = mode === 'attention'
+    ? 'No exercises need attention right now.'
+    : mode === 'improving'
+      ? 'No improving exercises yet. Keep logging sessions to build the signal.'
+      : 'No exercises match that filter.';
 
   return (
     <View>
-      <PRSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+      <Text style={styles.subtitle}>Lift-level progress. Open an exercise for strength and volume details.</Text>
 
-      {!searchActive && (
-        <MuscleGroupPills
-          muscles={availableMuscles}
-          selected={selectedMuscle}
-          onSelect={setSelectedMuscle}
-        />
+      <View style={styles.modeRow}>
+        {([
+          ['attention', 'Needs Attention'],
+          ['improving', 'Improving'],
+          ['all', 'All'],
+        ] as [ExerciseMode, string][]).map(([key, label]) => (
+          <TouchableOpacity
+            key={key}
+            style={[styles.modeChip, mode === key && styles.modeChipActive]}
+            activeOpacity={0.75}
+            onPress={() => {
+              setMode(key);
+              setSearchQuery('');
+              setSelectedMuscle(null);
+            }}
+          >
+            <Text style={[styles.modeChipText, mode === key && styles.modeChipTextActive]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {allModeActive && (
+        <>
+          <PRSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+
+          {!searchActive && (
+            <MuscleGroupPills
+              muscles={availableMuscles}
+              selected={selectedMuscle}
+              onSelect={setSelectedMuscle}
+            />
+          )}
+        </>
       )}
 
-      <Text style={styles.subtitle}>Estimated 1RM per exercise (Epley formula)</Text>
-
-      {searchActive ? (
-        <ExerciseList
-          exercises={searchResults}
-          expandedExercise={expandedExercise}
-          onToggle={toggleExercise}
-          onViewDetail={onViewDetail}
-          progressionMap={progressionMap}
-          phaseIntent={phaseIntent}
-        />
-      ) : selectedMuscle ? (
+      {visibleExercises.length === 0 ? (
+        <View style={styles.emptyModeCard}>
+          <Text style={styles.emptyModeText}>{emptyModeCopy}</Text>
+        </View>
+      ) : allModeActive && selectedMuscle && !searchActive ? (
         <EquipmentGroupedList
-          exercises={muscleFiltered}
+          exercises={visibleExercises}
           expandedExercise={expandedExercise}
           onToggle={toggleExercise}
           onViewDetail={onViewDetail}
@@ -378,7 +466,7 @@ export default function StrengthTab({ onViewDetail }: StrengthTabProps = {}) {
         />
       ) : (
         <ExerciseList
-          exercises={allE1rms}
+          exercises={visibleExercises}
           expandedExercise={expandedExercise}
           onToggle={toggleExercise}
           onViewDetail={onViewDetail}
@@ -413,7 +501,51 @@ const styles = StyleSheet.create({
   subtitle: {
     color: COLORS.text_tertiary,
     fontSize: 12,
+    lineHeight: 17,
     marginBottom: SPACING.md,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  modeChip: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.accent_primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
+  },
+  modeChipActive: {
+    backgroundColor: COLORS.accent_fill,
+    borderColor: COLORS.accent_primary,
+  },
+  modeChipText: {
+    color: COLORS.accent_light,
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  modeChipTextActive: {
+    color: COLORS.accent_light,
+  },
+  emptyModeCard: {
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  emptyModeText: {
+    color: COLORS.text_secondary,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   count: {
     color: COLORS.text_tertiary,
@@ -479,22 +611,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cardMeta: {
-    color: COLORS.text_tertiary,
+    color: COLORS.text_secondary,
     fontSize: 12,
+    lineHeight: 17,
+    marginTop: SPACING.xs,
+  },
+  cardSubMeta: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    lineHeight: 15,
     marginTop: 2,
   },
   cardBest: {
-    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  cardBestLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  detailChevron: {
+    marginLeft: SPACING.sm,
   },
   cardWeight: {
     color: 'white',
     fontSize: 18,
     fontWeight: '700',
-  },
-  e1rmTrend: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
   },
   expanded: {
     marginTop: SPACING.md,

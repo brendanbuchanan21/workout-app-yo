@@ -11,6 +11,8 @@ export const COLORS = {
   accent_light: '#F0A54A',
   accent_muted: '#C47A24',
   accent_subtle: 'rgba(232, 145, 45, 0.12)',
+  /** Selected pills, toggles (stronger than accent_subtle, softer than accent_primary slab) */
+  accent_fill: 'rgba(232, 145, 45, 0.28)',
   accent_glow: 'rgba(232, 145, 45, 0.06)',
 
   // Complementary gold for achievement/status copy

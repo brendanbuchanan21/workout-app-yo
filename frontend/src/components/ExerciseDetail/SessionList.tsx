@@ -40,6 +40,17 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
 
   const paginatedSessions = reversed.slice(0, visibleCount);
   const hasMore = visibleCount < reversed.length;
+  const canCollapse = visibleCount > PAGE_SIZE;
+
+  const collapseToPageSize = () => {
+    const firstPageDates = new Set(
+      reversed.slice(0, PAGE_SIZE).map((s) => s.date),
+    );
+    if (expandedSession && !firstPageDates.has(expandedSession)) {
+      onToggle('');
+    }
+    setVisibleCount(PAGE_SIZE);
+  };
 
   return (
     <View style={styles.container}>
@@ -101,6 +112,15 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
           activeOpacity={0.7}
         >
           <Text style={styles.loadMoreText}>View more</Text>
+        </TouchableOpacity>
+      )}
+      {canCollapse && (
+        <TouchableOpacity
+          style={styles.loadMore}
+          onPress={collapseToPageSize}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.loadMoreText}>View less</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -151,7 +151,7 @@ export default function ExerciseDetailScreen() {
             />
 
             {detail.periodComparison && (
-              <PeriodComparison {...detail.periodComparison} />
+              <PeriodComparison {...detail.periodComparison} range={range} />
             )}
 
             <TonnageChart sessions={detail.sessions} />
@@ -170,6 +170,7 @@ export default function ExerciseDetailScreen() {
 
             {detail.periodComparison && (
               <VolumePeriodComparison
+                range={range}
                 startAvgTonnageKg={detail.periodComparison.startAvgTonnageKg}
                 endAvgTonnageKg={detail.periodComparison.endAvgTonnageKg}
               />

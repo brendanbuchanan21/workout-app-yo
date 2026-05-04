@@ -2,13 +2,24 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatTonnage } from '../../utils/format';
+import { TimeRange } from './TimeRangePicker';
 
 interface VolumePeriodComparisonProps {
+  range: TimeRange;
   startAvgTonnageKg: number;
   endAvgTonnageKg: number;
 }
 
+const RANGE_TITLES: Record<TimeRange, string> = {
+  '1m': 'Last Month',
+  '3m': 'Last 3 Months',
+  '6m': 'Last 6 Months',
+  '1y': 'Last Year',
+  all: 'Since First Logged',
+};
+
 export default function VolumePeriodComparison({
+  range,
   startAvgTonnageKg,
   endAvgTonnageKg,
 }: VolumePeriodComparisonProps) {
@@ -19,12 +30,12 @@ export default function VolumePeriodComparison({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Then vs Now</Text>
-      <Text style={styles.subtitle}>Average session tonnage across this range</Text>
+      <Text style={styles.title}>{RANGE_TITLES[range]}</Text>
+      <Text style={styles.subtitle}>Average session volume</Text>
 
       <View style={styles.columns}>
         <View style={styles.column}>
-          <Text style={styles.columnLabel}>Then</Text>
+          <Text style={styles.columnLabel}>At the Start</Text>
           <Text style={styles.value}>{formatTonnage(startAvgTonnageKg)}</Text>
         </View>
         <View style={styles.divider} />

@@ -142,8 +142,8 @@ export default function Progress() {
         <View style={styles.tabRow}>
           {([
             ['summary', 'Summary'],
-            ['muscleGroups', 'Muscles'],
             ['exercises', 'Exercises'],
+            ['muscleGroups', 'Muscles'],
             ['records', 'Records'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <TouchableOpacity

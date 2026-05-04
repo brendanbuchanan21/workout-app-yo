@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
@@ -27,13 +28,23 @@ interface SessionListProps {
   onToggle: (date: string) => void;
 }
 
+const PAGE_SIZE = 15;
+
 export default function SessionList({ sessions, expandedSession, onToggle }: SessionListProps) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const reversed = [...sessions].reverse();
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [sessions]);
+
+  const paginatedSessions = reversed.slice(0, visibleCount);
+  const hasMore = visibleCount < reversed.length;
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Session History</Text>
-      {reversed.map((session) => {
+      {paginatedSessions.map((session) => {
         const isExpanded = expandedSession === session.date;
         const d = new Date(session.date + 'T12:00:00');
         const sameYear = d.getFullYear() === new Date().getFullYear();
@@ -81,6 +92,17 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
           </TouchableOpacity>
         );
       })}
+      {hasMore && (
+        <TouchableOpacity
+          style={styles.loadMore}
+          onPress={() =>
+            setVisibleCount((c) => Math.min(c + PAGE_SIZE, reversed.length))
+          }
+          activeOpacity={0.7}
+        >
+          <Text style={styles.loadMoreText}>View more</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -162,5 +184,14 @@ const styles = StyleSheet.create({
   setRir: {
     color: COLORS.text_tertiary,
     fontSize: 12,
+  },
+  loadMore: {
+    paddingTop: SPACING.md,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    color: COLORS.accent_primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

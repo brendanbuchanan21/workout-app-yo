@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatTonnage } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 import { TimeRange } from './TimeRangePicker';
 
 interface Session {
@@ -42,7 +43,7 @@ export default function VolumePeriodComparison({
   const isPositive = changePercent >= 0;
 
   return (
-    <View style={styles.container}>
+    <CardGradientSurface gradientId="exDetailPeriodVol" style={styles.container}>
       <Text style={styles.title}>{RANGE_TITLES[range]}</Text>
       <Text style={styles.subtitle}>Average session workload</Text>
 
@@ -63,13 +64,12 @@ export default function VolumePeriodComparison({
           {isPositive ? '+' : ''}{changePercent.toFixed(1)}% volume {isPositive ? 'up' : 'down'}
         </Text>
       </View>
-    </View>
+    </CardGradientSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,

@@ -13,8 +13,9 @@ import Svg, {
 } from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
-import { TimeRange } from './TimeRangePicker';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 import { getDateDomain, getDateTicks, getDateX } from './chartAxis';
+import { TimeRange } from './TimeRangePicker';
 
 interface Session {
   date: string;
@@ -105,7 +106,7 @@ export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProp
   } as any;
 
   return (
-    <View style={styles.container}>
+    <CardGradientSurface gradientId="exDetailE1rmChart" style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Estimated 1RM</Text>
         {activeSession && (
@@ -265,18 +266,18 @@ export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProp
           )}
         </Svg>
       </View>
-    </View>
+    </CardGradientSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   title: {
     color: COLORS.text_primary,

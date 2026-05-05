@@ -1,8 +1,10 @@
-import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
-import { COLORS, SPACING, RADIUS } from "../../constants/theme";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { TodayOverview, TodayContext } from "../../types/training";
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+
+import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
+import { TodayOverview, TodayContext } from '../../types/training';
 
 type workoutInfo = {
   title: string;
@@ -21,7 +23,8 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
 
     return (
         <View style={styles.glowWrap}>
-        <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
+        <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(tabs)/train')}>
+          <CardGradientSurface gradientId="homeTodaysWorkout" style={styles.workoutCard}>
           <View style={styles.workoutCardHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{workoutInfo.title}</Text>
@@ -39,6 +42,7 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
             <Text style={styles.muscleSummary} numberOfLines={1}>{exerciseSummary}</Text>
           )}
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
+          </CardGradientSurface>
         </TouchableOpacity>
         </View>
   );

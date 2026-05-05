@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatTonnage } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface Session {
   date: string;
@@ -20,7 +21,7 @@ function formatDate(date: string): string {
 
 export default function VolumeSessionList({ sessions }: VolumeSessionListProps) {
   return (
-    <View style={styles.container}>
+    <CardGradientSurface gradientId="exDetailVolSessions" style={styles.container}>
       <Text style={styles.title}>Volume Sessions</Text>
       {[...sessions].reverse().slice(0, 10).map((session) => (
         <View key={session.date} style={styles.row}>
@@ -31,18 +32,18 @@ export default function VolumeSessionList({ sessions }: VolumeSessionListProps) 
           <Text style={styles.tonnage}>{formatTonnage(session.totalTonnageKg)}</Text>
         </View>
       ))}
-    </View>
+    </CardGradientSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   title: {
     color: COLORS.text_primary,

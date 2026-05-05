@@ -4,10 +4,12 @@ import Svg, { Defs, LinearGradient, Polygon, Polyline, Stop } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { EnrichedExerciseHistory } from '../../types/training';
+import { apiGet } from '../../utils/api';
 import { ExerciseProgression } from '../../utils/progressionInsights';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
+
 import ProgressionBadge from './ProgressionBadge';
 
 interface SummaryTabProps {
@@ -162,65 +164,67 @@ function SignalCard({
     : tone === 'success'
       ? COLORS.success
       : COLORS.accent_primary;
+  const gradientKey = `${featured ? 'F' : 'N'}-${signal.catalogId || 'na'}-${signal.exerciseName}`;
 
   return (
     <TouchableOpacity
-      style={[styles.card, featured && styles.featuredCard]}
       activeOpacity={0.78}
       onPress={() => {
         if (signal.catalogId && onViewDetail) onViewDetail(signal.catalogId, signal.exerciseName);
       }}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitleWrap}>
-          {label ? <Text style={styles.cardKicker}>{label}</Text> : null}
-          <View style={styles.nameRow}>
-            <Text style={styles.exerciseName} numberOfLines={1}>{signal.exerciseName}</Text>
-            {signal.progression ? (
-              <ProgressionBadge status={signal.progression.status} phaseIntent={phaseIntent} />
-            ) : null}
+      <CardGradientSurface gradientId={gradientKey} style={[styles.card, featured && styles.featuredCard]}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleWrap}>
+            {label ? <Text style={styles.cardKicker}>{label}</Text> : null}
+            <View style={styles.nameRow}>
+              <Text style={styles.exerciseName} numberOfLines={1}>{signal.exerciseName}</Text>
+              {signal.progression ? (
+                <ProgressionBadge status={signal.progression.status} phaseIntent={phaseIntent} />
+              ) : null}
+            </View>
+            <Text style={styles.signalLine}>{getSignalLine(signal)}</Text>
           </View>
-          <Text style={styles.signalLine}>{getSignalLine(signal)}</Text>
+          <View style={styles.changeWrap}>
+            <Text style={[styles.changeValue, { color: toneColor }]}>
+              {formatPercent(signal.progression?.e1rmChangePercent || signal.changePercent)}
+            </Text>
+            <Ionicons
+              name={tone === 'warning' ? 'trending-down' : tone === 'success' ? 'trending-up' : 'remove'}
+              size={16}
+              color={toneColor}
+            />
+          </View>
         </View>
-        <View style={styles.changeWrap}>
-          <Text style={[styles.changeValue, { color: toneColor }]}>
-            {formatPercent(signal.progression?.e1rmChangePercent || signal.changePercent)}
+
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>Current</Text>
+            <Text style={styles.statValue}>{formatWeight(signal.currentE1rm)}</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>Peak</Text>
+            <Text style={styles.statValue}>{formatWeight(signal.peakE1rm)}</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statLabel}>Sessions</Text>
+            <Text style={styles.statValue}>{signal.history.length}</Text>
+          </View>
+        </View>
+
+        <View style={styles.sparkWrap}>
+          {renderSparkline(signal, tone)}
+        </View>
+
+        <View style={styles.thenNowRow}>
+          <Text style={styles.thenNowText}>
+            Then {formatWeight(signal.startE1rm)} to now {formatWeight(signal.currentE1rm)}
           </Text>
-          <Ionicons
-            name={tone === 'warning' ? 'trending-down' : tone === 'success' ? 'trending-up' : 'remove'}
-            size={16}
-            color={toneColor}
-          />
+          <Text style={[styles.thenNowDelta, { color: toneColor }]}>
+            {formatPercent(signal.changePercent)}
+          </Text>
         </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Current</Text>
-          <Text style={styles.statValue}>{formatWeight(signal.currentE1rm)}</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Peak</Text>
-          <Text style={styles.statValue}>{formatWeight(signal.peakE1rm)}</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statLabel}>Sessions</Text>
-          <Text style={styles.statValue}>{signal.history.length}</Text>
-        </View>
-      </View>
-
-      <View style={styles.sparkWrap}>
-        {renderSparkline(signal, tone)}
-      </View>
-
-      <View style={styles.thenNowRow}>
-        <Text style={styles.thenNowText}>
-          Then {formatWeight(signal.startE1rm)} to now {formatWeight(signal.currentE1rm)}
-        </Text>
-        <Text style={[styles.thenNowDelta, { color: toneColor }]}>
-          {formatPercent(signal.changePercent)}
-        </Text>
-      </View>
+      </CardGradientSurface>
     </TouchableOpacity>
   );
 }
@@ -362,12 +366,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   card: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
+    overflow: 'hidden',
   },
   featuredCard: {
     borderColor: COLORS.border,

@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { MUSCLE_LABELS } from '../../constants/training';
-import MuscleGroupIcon from '../MuscleGroupIcon';
-import SetRow from './SetRow';
-import ExerciseSearchPanel from './ExerciseSearchPanel';
 import { CatalogExercise, TodayContext } from '../../types/training';
 import { kgToLbs } from '../../utils/setLogging';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
+import MuscleGroupIcon from '../MuscleGroupIcon';
+import ExerciseSearchPanel from './ExerciseSearchPanel';
+import SetRow from './SetRow';
 
 interface ActiveSessionProps {
   today: TodayContext;
@@ -108,7 +109,7 @@ export default function ActiveSession({
           <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
         </View>
 
-        <View style={styles.nowCard}>
+        <CardGradientSurface gradientId={`activeNow-${exercise.id}`} style={styles.nowCard}>
           <View style={styles.nowLabelRow}>
             <Text style={styles.nowLabel}>Now Playing</Text>
             <Text style={styles.exerciseCounter}>{currentExercise + 1} / {exercises.length}</Text>
@@ -194,10 +195,10 @@ export default function ActiveSession({
               <Text style={[styles.actionButtonText, !nextExercise && styles.disabledControl]}>Skip for Now</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </CardGradientSurface>
 
         {allSetsComplete ? (
-          <View style={styles.completionPanel}>
+          <CardGradientSurface gradientId="activeWorkoutComplete" style={styles.completionPanel}>
             <Text style={styles.completionTitle}>Workout Complete</Text>
             <Text style={styles.completionSubtitle}>
               All {totalSets} sets finished. Nice work.
@@ -214,7 +215,7 @@ export default function ActiveSession({
             >
               <Text style={styles.addMoreBtnText}>Add Another Exercise</Text>
             </TouchableOpacity>
-          </View>
+          </CardGradientSurface>
         ) : (
           <>
             <View style={styles.upcomingSection}>
@@ -224,31 +225,38 @@ export default function ActiveSession({
                 return (
                   <TouchableOpacity
                     key={upcomingExercise.id}
-                    style={styles.upcomingCard}
+                    activeOpacity={0.82}
                     onPress={() => {
                       onSetCurrentExercise(index);
                       onSetActiveSetIdx(null);
                       onSetShowAddExercise(false);
                     }}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.upcomingName}>{upcomingExercise.exerciseName}</Text>
-                      <Text style={styles.upcomingMeta}>
-                        {MUSCLE_LABELS[upcomingExercise.muscleGroup] || upcomingExercise.muscleGroup} · {upcomingCompletedSets}/{upcomingExercise.sets.length} sets
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.upcomingSwap}
-                      onPress={() => {
-                        onSetCurrentExercise(index);
-                        onSetSelectedMuscle(upcomingExercise.muscleGroup);
-                        onSetExerciseSearch('');
-                        onSetShowAddExercise(true);
-                      }}
+                    <CardGradientSurface
+                      gradientId={`activeUpcoming-${upcomingExercise.id}`}
+                      style={styles.upcomingCard}
                     >
-                      <Text style={styles.upcomingSwapText}>Swap</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.dragHint}>|||</Text>
+                      <View style={styles.upcomingCardInner}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.upcomingName}>{upcomingExercise.exerciseName}</Text>
+                          <Text style={styles.upcomingMeta}>
+                            {MUSCLE_LABELS[upcomingExercise.muscleGroup] || upcomingExercise.muscleGroup} · {upcomingCompletedSets}/{upcomingExercise.sets.length} sets
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.upcomingSwap}
+                          onPress={() => {
+                            onSetCurrentExercise(index);
+                            onSetSelectedMuscle(upcomingExercise.muscleGroup);
+                            onSetExerciseSearch('');
+                            onSetShowAddExercise(true);
+                          }}
+                        >
+                          <Text style={styles.upcomingSwapText}>Swap</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.dragHint}>|||</Text>
+                      </View>
+                    </CardGradientSurface>
                   </TouchableOpacity>
                 );
               })}
@@ -372,7 +380,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   nowCard: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -495,7 +502,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   currentSetList: {
-    backgroundColor: COLORS.bg_card,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: COLORS.border_subtle,
@@ -532,16 +538,18 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   upcomingCard: {
+    marginBottom: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  upcomingCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: SPACING.sm,
   },
   upcomingName: {
     color: COLORS.text_primary,
@@ -598,12 +606,12 @@ const styles = StyleSheet.create({
   },
   completionPanel: {
     marginTop: SPACING.xl,
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.accent_primary,
     padding: SPACING.xl,
     alignItems: 'center',
+    overflow: 'hidden',
   },
   completionTitle: {
     color: COLORS.text_primary,

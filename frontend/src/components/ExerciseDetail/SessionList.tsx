@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatWeight } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface SetDetail {
   setNumber: number;
@@ -55,7 +56,7 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
   };
 
   return (
-    <View style={styles.container}>
+    <CardGradientSurface gradientId="exDetailSessionHistory" style={styles.container}>
       <Text style={styles.title}>Session History</Text>
       {paginatedSessions.map((session) => {
         const isExpanded = expandedSession === session.date;
@@ -126,17 +127,17 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
           <Text style={styles.loadMoreText}>View less</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </CardGradientSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
+    overflow: 'hidden',
   },
   title: {
     color: COLORS.text_primary,

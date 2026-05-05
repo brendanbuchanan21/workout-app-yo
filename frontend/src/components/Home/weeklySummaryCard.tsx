@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { MUSCLE_LABELS } from '../../constants/training';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
+import { MUSCLE_LABELS } from '../../constants/training';
 
 
 
@@ -69,64 +70,67 @@ export default function WeeklySummaryCard({ weeklyVolume }: { weeklyVolume: Week
     const aboveTarget = targetSets > 0 && completedSets >= targetSets;
   
     return (
-      <View style={styles.summaryCard}>
-        <View style={styles.volumeScore}>
-          <Text style={styles.summaryTitle}>Weekly Volume</Text>
-          <View style={styles.volumeTotalRow}>
-            <Text style={[styles.volumeTotal, !aboveTarget && styles.volumeTotalBelow]}>{completedSets}</Text>
-            <Text style={styles.volumeTarget}>/ {targetSets || '--'}</Text>
-          </View>
-          <View style={styles.totalTrack}>
-            <View style={[styles.totalFill, { width: `${pct * 100}%` }]} />
-          </View>
-        </View>
-  
-        <View style={styles.Bars}>
-          {muscleRows.length > 0 ? muscleRows.map((row) => {
-            const aboveTarget = row.completedSets >= row.targetSets;
-            return (
-              <View key={row.muscle} style={styles.muscleBarRow}>
-                <View style={styles.muscleBarHeader}>
-                  <Text style={styles.muscleBarLabel} numberOfLines={1}>{row.label}</Text>
-                  <Text style={[styles.muscleBarValue, aboveTarget && styles.muscleBarValueHit]}>
-                    {row.completedSets}/{row.targetSets}
-                  </Text>
-                </View>
-                <View style={styles.muscleTrack}>
-                  <View
-                    style={[
-                      styles.muscleFill,
-                      aboveTarget && styles.muscleFillHit,
-                      { width: `${Math.max(row.progress * 100, 6)}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-            );
-          }) : (
-            <View style={styles.emptyVolumeState}>
-              <Text style={styles.emptyVolumeText}>No muscle targets yet</Text>
+      <CardGradientSurface gradientId="homeWeeklyVolume" style={styles.summaryCard}>
+        <View style={styles.summaryCardInner}>
+          <View style={styles.volumeScore}>
+            <Text style={styles.summaryTitle}>Weekly Volume</Text>
+            <View style={styles.volumeTotalRow}>
+              <Text style={[styles.volumeTotal, !aboveTarget && styles.volumeTotalBelow]}>{completedSets}</Text>
+              <Text style={styles.volumeTarget}>/ {targetSets || '--'}</Text>
             </View>
-          )}
+            <View style={styles.totalTrack}>
+              <View style={[styles.totalFill, { width: `${pct * 100}%` }]} />
+            </View>
+          </View>
+
+          <View style={styles.Bars}>
+            {muscleRows.length > 0 ? muscleRows.map((row) => {
+              const aboveTarget = row.completedSets >= row.targetSets;
+              return (
+                <View key={row.muscle} style={styles.muscleBarRow}>
+                  <View style={styles.muscleBarHeader}>
+                    <Text style={styles.muscleBarLabel} numberOfLines={1}>{row.label}</Text>
+                    <Text style={[styles.muscleBarValue, aboveTarget && styles.muscleBarValueHit]}>
+                      {row.completedSets}/{row.targetSets}
+                    </Text>
+                  </View>
+                  <View style={styles.muscleTrack}>
+                    <View
+                      style={[
+                        styles.muscleFill,
+                        aboveTarget && styles.muscleFillHit,
+                        { width: `${Math.max(row.progress * 100, 6)}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              );
+            }) : (
+              <View style={styles.emptyVolumeState}>
+                <Text style={styles.emptyVolumeText}>No muscle targets yet</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </CardGradientSurface>
     );
   }
 
 
 const styles = StyleSheet.create({
   summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    backgroundColor: COLORS.bg_elevated,
+    marginTop: SPACING.md,
+    marginBottom: 0,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: SPACING.lg,
-    marginTop: SPACING.md,
-    marginBottom: 0,
     overflow: 'hidden',
+  },
+  summaryCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    padding: SPACING.lg,
   },
   volumeScore: {
     width: 116,

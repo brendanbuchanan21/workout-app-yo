@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 import { PREvent } from '../../types/training';
 
 interface RecentPRsProps {
@@ -42,7 +43,7 @@ export default function RecentPRs({ events }: RecentPRsProps) {
           <Text style={styles.seeAll}>See all ›</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.card}>
+      <CardGradientSurface gradientId="homeRecentPRs" style={styles.card}>
         {top.map((event, i) => (
           <View
             key={i}
@@ -69,7 +70,7 @@ export default function RecentPRs({ events }: RecentPRsProps) {
             </View>
           </View>
         ))}
-      </View>
+      </CardGradientSurface>
     </View>
   );
 }
@@ -98,7 +99,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   card: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,

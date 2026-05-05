@@ -14,8 +14,9 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
+import { apiGet } from '../../utils/api';
 import { ALL_MUSCLE_GROUPS, MUSCLE_LABELS } from '../../constants/training';
 import { ExerciseProgression } from '../../utils/progressionInsights';
 import { EnrichedExerciseHistory, ExerciseHistoryPoint, PREvent } from '../../types/training';
@@ -535,7 +536,7 @@ function MuscleGroupCard({
     : getStrengthSummary(row, representativeExercise, strengthPoints.length);
 
   return (
-    <View style={styles.card}>
+    <CardGradientSurface gradientId={`muscleCard-${row.muscle}`} style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
           <Text style={styles.muscleName}>{row.label}</Text>
@@ -615,7 +616,7 @@ function MuscleGroupCard({
         />
         <Text style={styles.contextText}>{summary}</Text>
       </View>
-    </View>
+    </CardGradientSurface>
   );
 }
 
@@ -746,12 +747,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   card: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',

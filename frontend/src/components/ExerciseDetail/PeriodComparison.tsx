@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatWeight, formatTonnage } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 import { TimeRange } from './TimeRangePicker';
 
 interface PeriodComparisonProps {
@@ -29,7 +30,7 @@ export default function PeriodComparison(props: PeriodComparisonProps) {
   const isPositive = props.changePercent >= 0;
 
   return (
-    <View style={styles.container}>
+    <CardGradientSurface gradientId="exDetailPeriodE1rm" style={styles.container}>
       <Text style={styles.title}>{RANGE_TITLES[props.range]}</Text>
 
       <View style={styles.headerRow}>
@@ -59,7 +60,7 @@ export default function PeriodComparison(props: PeriodComparisonProps) {
           {isPositive ? '+' : ''}{props.changePercent.toFixed(1)}% e1RM {isPositive ? '↑' : '↓'}
         </Text>
       </View>
-    </View>
+    </CardGradientSurface>
   );
 }
 
@@ -97,7 +98,6 @@ function ComparisonRow({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,

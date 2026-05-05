@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatTonnage } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface Session {
   date: string;
@@ -34,7 +35,7 @@ export default function VolumeSummaryStats({ sessions }: VolumeSummaryStatsProps
 
   return (
     <View style={styles.row}>
-      <View style={styles.box}>
+      <CardGradientSurface gradientId="exDetailVolSummaryCurrent" style={styles.box}>
         <Text style={styles.label}>Current Workload</Text>
         <Text style={styles.value}>{formatTonnage(latest.totalTonnageKg)}</Text>
         {delta !== null && delta !== 0 ? (
@@ -42,16 +43,16 @@ export default function VolumeSummaryStats({ sessions }: VolumeSummaryStatsProps
             {delta > 0 ? '+' : '-'}{formatTonnage(Math.abs(delta))}
           </Text>
         ) : null}
-      </View>
-      <View style={[styles.box, styles.boxMiddle]}>
+      </CardGradientSurface>
+      <CardGradientSurface gradientId="exDetailVolSummaryPeak" style={[styles.box, styles.boxMiddle]}>
         <Text style={styles.label}>Peak Workload</Text>
         <Text style={styles.value}>{formatTonnage(peak.totalTonnageKg)}</Text>
         <Text style={styles.subLabel}>{formatDate(peak.date)}</Text>
-      </View>
-      <View style={styles.box}>
+      </CardGradientSurface>
+      <CardGradientSurface gradientId="exDetailVolSummarySets" style={styles.box}>
         <Text style={styles.label}>Sets</Text>
         <Text style={styles.value}>{latest.totalSets}</Text>
-      </View>
+      </CardGradientSurface>
     </View>
   );
 }
@@ -63,7 +64,6 @@ const styles = StyleSheet.create({
   },
   box: {
     flex: 1,
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,

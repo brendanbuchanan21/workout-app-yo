@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatWeight } from '../../utils/format';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface SummaryStatsProps {
   currentE1rmKg: number;
@@ -27,7 +28,7 @@ export default function SummaryStats({
 
   return (
     <View style={styles.row}>
-      <View style={styles.box}>
+      <CardGradientSurface gradientId="exDetailSummaryCurrent" style={styles.box}>
         <Text style={styles.label}>Current e1RM</Text>
         <Text style={styles.value}>{formatWeight(currentE1rmKg)}</Text>
         {delta !== null && delta !== 0 && (
@@ -35,16 +36,16 @@ export default function SummaryStats({
             {delta > 0 ? '+' : ''}{formatWeight(Math.abs(delta))}
           </Text>
         )}
-      </View>
-      <View style={[styles.box, styles.boxMiddle]}>
+      </CardGradientSurface>
+      <CardGradientSurface gradientId="exDetailSummaryPeak" style={[styles.box, styles.boxMiddle]}>
         <Text style={styles.label}>Peak e1RM</Text>
         <Text style={styles.value}>{formatWeight(peakE1rmKg)}</Text>
         <Text style={styles.subLabel}>{peakDateLabel}</Text>
-      </View>
-      <View style={styles.box}>
+      </CardGradientSurface>
+      <CardGradientSurface gradientId="exDetailSummarySessions" style={styles.box}>
         <Text style={styles.label}>Sessions</Text>
         <Text style={styles.value}>{totalSessions}</Text>
-      </View>
+      </CardGradientSurface>
     </View>
   );
 }
@@ -56,7 +57,6 @@ const styles = StyleSheet.create({
   },
   box: {
     flex: 1,
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,

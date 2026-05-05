@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface Recommendation {
   id: string;
@@ -78,50 +79,53 @@ export default function RecommendationPanel({ recommendations }: RecommendationP
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>INSIGHTS</Text>
       <View style={styles.grid}>
-      {featured.map((rec) => {
-        const color = PRIORITY_COLORS[rec.priority] || COLORS.text_secondary;
-        const { context, message } = splitDetail(rec.detail);
-        const compactContext = compactExerciseList(context);
-        const isExpanded = expandedId === rec.id;
-        const { preview, remainder } = splitMessage(message);
-        const fullMessage = remainder ? `${preview} ${remainder}` : preview;
-        const isExpandable = Boolean(fullMessage.trim());
-        return (
-          <Pressable
-            key={rec.id}
-            style={styles.card}
-            onPress={() => setExpandedId((current) => current === rec.id ? null : rec.id)}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>
-                <Text style={[styles.icon, { color }]}>
-                  {CATEGORY_ICONS[rec.category] || '?'}
-                </Text>
-              </View>
-              {isExpandable ? (
-                <Ionicons
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color={COLORS.text_tertiary}
-                />
-              ) : null}
-            </View>
-            <View style={styles.textWrap}>
-              <Text style={styles.title}>{rec.title}</Text>
-              {compactContext ? (
-                <Text style={styles.context}>
-                  {compactContext}
-                </Text>
-              ) : null}
-              {isExpanded && isExpandable ? (
-                <Text style={styles.detailExpanded}>
-                  {fullMessage}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        );
-      })}
+        {featured.map((rec) => {
+          const color = PRIORITY_COLORS[rec.priority] || COLORS.text_secondary;
+          const { context, message } = splitDetail(rec.detail);
+          const compactContext = compactExerciseList(context);
+          const isExpanded = expandedId === rec.id;
+          const { preview, remainder } = splitMessage(message);
+          const fullMessage = remainder ? `${preview} ${remainder}` : preview;
+          const isExpandable = Boolean(fullMessage.trim());
+          return (
+            <Pressable
+              key={rec.id}
+              style={styles.pressable}
+              onPress={() => setExpandedId((current) => current === rec.id ? null : rec.id)}
+            >
+              <CardGradientSurface gradientId={`homeInsight-${rec.id}`} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.iconWrap, { backgroundColor: color + '20' }]}>
+                    <Text style={[styles.icon, { color }]}>
+                      {CATEGORY_ICONS[rec.category] || '?'}
+                    </Text>
+                  </View>
+                  {isExpandable ? (
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color={COLORS.text_tertiary}
+                      style={styles.headerChevron}
+                    />
+                  ) : null}
+                </View>
+                <View style={styles.textWrap}>
+                  <Text style={styles.title}>{rec.title}</Text>
+                  {compactContext ? (
+                    <Text style={styles.context}>
+                      {compactContext}
+                    </Text>
+                  ) : null}
+                  {isExpanded && isExpandable ? (
+                    <Text style={styles.detailExpanded}>
+                      {fullMessage}
+                    </Text>
+                  ) : null}
+                </View>
+              </CardGradientSurface>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -140,12 +144,15 @@ const styles = StyleSheet.create({
   },
   grid: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: SPACING.sm,
   },
-  card: {
+  pressable: {
     flex: 1,
-    minHeight: 120,
-    backgroundColor: COLORS.bg_elevated,
+    minWidth: 0,
+  },
+  card: {
+    width: '100%',
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -154,6 +161,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 14,
+    elevation: 6,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -161,9 +169,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: SPACING.sm,
   },
+  headerChevron: {
+    flexShrink: 0,
+    marginLeft: SPACING.xs,
+  },
   iconWrap: {
     width: 32,
     height: 32,
+    flexShrink: 0,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -173,7 +186,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   textWrap: {
-    flex: 1,
+    width: '100%',
   },
   title: {
     color: COLORS.text_primary,
@@ -181,6 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 18,
     marginBottom: 6,
+    flexShrink: 1,
   },
   context: {
     color: COLORS.text_tertiary,
@@ -188,6 +202,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 15,
     marginBottom: 4,
+    flexShrink: 1,
   },
   detail: {
     color: COLORS.text_secondary,
@@ -199,5 +214,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     marginTop: 4,
+    flexShrink: 1,
   },
 });

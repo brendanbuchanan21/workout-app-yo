@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../src/context/AuthContext';
 import { apiGet } from '../../src/utils/api';
@@ -240,9 +239,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 6,
     paddingHorizontal: 11,
-    backgroundColor: 'rgba(232, 145, 45, 0.10)',
     borderRadius: 20,
-    borderWidth: 1,
+    borderBottomWidth: 1,
     borderColor: 'rgba(232, 145, 45, 0.42)',
   },
   phaseDot: {

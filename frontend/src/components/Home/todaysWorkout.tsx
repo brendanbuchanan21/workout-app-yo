@@ -20,8 +20,7 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
     const exerciseSummary = remainingCountExercises > 0 ? `${visibleExercises.join(', ')} + ${remainingCountExercises} more` : visibleExercises?.join(', ');
 
     return (
-    <View style={styles.glowWrap}>
-        <View style={styles.borderGlow} />
+        <View style={styles.glowWrap}>
         <TouchableOpacity style={styles.workoutCard} onPress={() => router.push('/(tabs)/train')}>
           <View style={styles.workoutCardHeader}>
             <View style={{ flex: 1 }}>
@@ -41,7 +40,7 @@ const TodaysWorkout = ( { workoutInfo, todayOverview, todayContext }: { workoutI
           )}
           <Text style={styles.workoutSubtext}>{workoutInfo.subtitle}</Text>
         </TouchableOpacity>
-    </View>
+        </View>
   );
 };
 
@@ -53,24 +52,9 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.md,
         borderRadius: RADIUS.xl,
       },
-      borderGlow: {
-        position: 'absolute',
-        top: -5,
-        left: -5,
-        right: -5,
-        bottom: -5,
-        borderRadius: RADIUS.xl + 5,
-        borderWidth: 1,
-        borderColor: 'rgba(232, 145, 45, 0.36)',
-        shadowColor: COLORS.accent_primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 18,
-        backgroundColor: 'transparent',
-      },
+      
     workoutCard: {
         padding: SPACING.lg,
-        backgroundColor: COLORS.bg_elevated,
         borderRadius: RADIUS.xl,
         borderWidth: 1,
         borderColor: 'rgba(232, 145, 45, 0.46)',
@@ -111,8 +95,8 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(242,240,237,0.16)',
         shadowColor: COLORS.accent_primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 12,
+        shadowOpacity: 0.10,
+        shadowRadius: 4,
       },
       playIconOffset: {
         marginLeft: 3,

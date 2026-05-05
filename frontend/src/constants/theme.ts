@@ -39,12 +39,7 @@ export const COLORS = {
   border_subtle: '#1F1F23',
 } as const;
 
-export const FONT = {
-  regular: 'System',
-  medium: 'System',
-  semibold: 'System',
-  bold: 'System',
-} as const;
+export { FONT } from './fontFaces';
 
 export const SPACING = {
   xs: 4,

@@ -89,8 +89,8 @@ const MUSCLE_CARD_ORDER_INDEX = new Map(
 );
 
 const CHART_MODES: { value: ChartMode; label: string }[] = [
-  { value: 'volume', label: 'Volume' },
   { value: 'strength', label: 'Strength' },
+  { value: 'volume', label: 'Volume' },
 ];
 
 const CHART_RANGES: { value: ChartRange; label: string; months: number }[] = [
@@ -646,8 +646,8 @@ export default function MuscleGroupsTab({ muscleGroups }: MuscleGroupsTabProps) 
         <MuscleGroupCard
           key={row.muscle}
           row={row}
-          volumeWeeks={volumeHistoryQuery.data ?? []}
           exercises={exerciseHistoryQuery.data ?? []}
+          volumeWeeks={volumeHistoryQuery.data ?? []}
         />
       ))}
     </View>

@@ -1,17 +1,23 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { ALL_MUSCLE_GROUPS, MUSCLE_LABELS } from '../../constants/training';
 import { ExerciseProgression } from '../../utils/progressionInsights';
-import { PREvent } from '../../types/training';
+import { EnrichedExerciseHistory, ExerciseHistoryPoint, PREvent } from '../../types/training';
 
 interface VolumeData {
   sets: number;
   tonnageKg: number;
+}
+
+interface VolumeWeek {
+  weekStart: string;
+  muscles: Record<string, number>;
 }
 
 interface MuscleGroupComparison {
@@ -49,9 +55,56 @@ interface MuscleRow {
   status: 'strong' | 'watch' | 'steady';
 }
 
+type ChartMode = 'volume' | 'strength';
+type ChartRange = '1m' | '3m' | '6m';
+
+const MUSCLE_CARD_ORDER = [
+  'chest',
+  'back',
+  'quads',
+  'hamstrings',
+  'side_delts',
+  'rear_delts',
+  'front_delts',
+  'abs',
+  'calves',
+  'biceps',
+  'triceps',
+  'glutes',
+  'traps',
+];
+
+const MUSCLE_CARD_ORDER_INDEX = new Map(
+  MUSCLE_CARD_ORDER.map((muscle, index) => [muscle, index]),
+);
+
+const CHART_MODES: { value: ChartMode; label: string }[] = [
+  { value: 'volume', label: 'Volume' },
+  { value: 'strength', label: 'Strength' },
+];
+
+const CHART_RANGES: { value: ChartRange; label: string; months: number }[] = [
+  { value: '1m', label: '1M', months: 1 },
+  { value: '3m', label: '3M', months: 3 },
+  { value: '6m', label: '6M', months: 6 },
+];
+
+const screenWidth = Dimensions.get('window').width;
+
 function formatPercent(value: number): string {
   if (Math.abs(value) < 1) return 'flat';
   return `${value > 0 ? '+' : ''}${Math.round(value)}%`;
+}
+
+function getCutoffDate(range: ChartRange): Date {
+  const option = CHART_RANGES.find((item) => item.value === range);
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - (option?.months ?? 3));
+  return cutoff;
+}
+
+function getPointDate(date: string): Date {
+  return new Date(`${date.split('T')[0]}T12:00:00`);
 }
 
 function getRecentPrCount(events: PREvent[], muscle: string): number {
@@ -81,6 +134,181 @@ function getStatus(row: Omit<MuscleRow, 'status' | 'label'>): MuscleRow['status'
   if (row.regressing > row.progressing || belowRange || aboveRange) return 'watch';
   if (row.progressing > 0 || row.recentPrs > 0) return 'strong';
   return 'steady';
+}
+
+function getVolumeSummary(row: MuscleRow): string {
+  const rangeCopy = getVolumeLabel(row);
+  const trendCopy = `Volume ${formatPercent(row.volumeDelta)} vs previous week.`;
+  return `${rangeCopy}. ${trendCopy}`;
+}
+
+function getStrengthSummary(row: MuscleRow, exercise?: EnrichedExerciseHistory, pointCount = 0): string {
+  if (!exercise || pointCount === 0) {
+    return `No strength timeline yet. ${row.progressing} improving · ${row.stalled} flat · ${row.regressing} down.`;
+  }
+
+  const signal = row.topSignal
+    ? `${row.topSignal.exerciseName} ${formatPercent(row.topSignal.e1rmChangePercent)}`
+    : exercise.exerciseName;
+  return `Best signal: ${signal}. ${pointCount} session${pointCount !== 1 ? 's' : ''} shown.`;
+}
+
+function getRepresentativeExercise(
+  row: MuscleRow,
+  exercises: EnrichedExerciseHistory[],
+): EnrichedExerciseHistory | undefined {
+  const muscleExercises = exercises.filter((exercise) => exercise.primaryMuscle === row.muscle);
+  if (muscleExercises.length === 0) return undefined;
+
+  if (row.topSignal) {
+    const signalExercise = muscleExercises.find((exercise) =>
+      (row.topSignal?.catalogId && exercise.catalogId === row.topSignal.catalogId)
+      || exercise.exerciseName === row.topSignal?.exerciseName
+    );
+    if (signalExercise) return signalExercise;
+  }
+
+  return [...muscleExercises].sort((a, b) => {
+    const aLatest = a.history[a.history.length - 1]?.date ?? '';
+    const bLatest = b.history[b.history.length - 1]?.date ?? '';
+    return b.history.length - a.history.length || bLatest.localeCompare(aLatest);
+  })[0];
+}
+
+function CompactLineChart({
+  values,
+  labels,
+  ySuffix,
+  guardrail,
+  emptyText,
+}: {
+  values: number[];
+  labels: string[];
+  ySuffix: string;
+  guardrail?: Guardrail;
+  emptyText: string;
+}) {
+  const chartWidth = screenWidth - SPACING.xl * 2 - SPACING.lg * 2 - 2;
+  const chartHeight = 150;
+  const padding = { top: 16, right: 12, bottom: 26, left: 40 };
+  const innerW = chartWidth - padding.left - padding.right;
+  const innerH = chartHeight - padding.top - padding.bottom;
+  const dataMax = values.reduce((max, value) => Math.max(max, value), 0);
+  const rawMax = Math.max(dataMax, guardrail?.ceiling ?? 0, 1);
+  const niceStep = rawMax <= 10 ? 2 : rawMax <= 30 ? 5 : rawMax <= 100 ? 20 : 50;
+  const maxY = Math.ceil((rawMax * 1.08) / niceStep) * niceStep;
+
+  const xFor = (index: number) => padding.left + (index / Math.max(values.length - 1, 1)) * innerW;
+  const yFor = (value: number) => padding.top + (1 - value / maxY) * innerH;
+  const points = values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(' ');
+  const lastIndex = values.length - 1;
+
+  if (values.length === 0) {
+    return (
+      <View style={styles.emptyChart}>
+        <Text style={styles.emptyChartText}>{emptyText}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.chartPanel}>
+      <Svg width={chartWidth} height={chartHeight}>
+        <Line
+          x1={padding.left}
+          y1={padding.top}
+          x2={chartWidth - padding.right}
+          y2={padding.top}
+          stroke={COLORS.border_subtle}
+          strokeWidth={1}
+          opacity={0.55}
+        />
+        <Line
+          x1={padding.left}
+          y1={padding.top + innerH}
+          x2={chartWidth - padding.right}
+          y2={padding.top + innerH}
+          stroke={COLORS.border_subtle}
+          strokeWidth={1}
+          opacity={0.4}
+        />
+
+        {guardrail && (
+          <Rect
+            x={padding.left}
+            y={yFor(guardrail.ceiling)}
+            width={innerW}
+            height={Math.max(yFor(guardrail.floor) - yFor(guardrail.ceiling), 2)}
+            fill={COLORS.accent_subtle}
+          />
+        )}
+
+        {[0, maxY].map((value) => (
+          <SvgText
+            key={`y-${value}`}
+            x={padding.left - 5}
+            y={yFor(value) + 4}
+            fontSize={9}
+            fill={COLORS.text_tertiary}
+            textAnchor="end"
+          >
+            {value === maxY ? `${Math.round(value)}${ySuffix}` : '0'}
+          </SvgText>
+        ))}
+
+        <Polyline
+          points={points}
+          fill="none"
+          stroke={COLORS.accent_primary}
+          strokeWidth={2.25}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {values.map((value, index) => (
+          <Circle
+            key={`point-${index}`}
+            cx={xFor(index)}
+            cy={yFor(value)}
+            r={index === lastIndex ? 4.5 : 2.75}
+            fill={COLORS.bg_secondary}
+            stroke={COLORS.accent_primary}
+            strokeWidth={index === lastIndex ? 2.25 : 1.25}
+          />
+        ))}
+
+        {labels.map((label, index) => {
+          const x = labels.length === 1
+            ? padding.left
+            : padding.left + (index / (labels.length - 1)) * innerW;
+          return (
+            <SvgText
+              key={`label-${index}`}
+              x={x}
+              y={chartHeight - 5}
+              fontSize={9}
+              fill={COLORS.text_tertiary}
+              textAnchor={index === 0 ? 'start' : index === labels.length - 1 ? 'end' : 'middle'}
+            >
+              {label}
+            </SvgText>
+          );
+        })}
+      </Svg>
+    </View>
+  );
+}
+
+function getChartLabels(dates: string[]): string[] {
+  if (dates.length === 0) return [];
+  const labelCount = Math.min(3, dates.length);
+  return Array.from({ length: labelCount }).map((_, labelIndex) => {
+    const pointIndex = labelCount === 1
+      ? 0
+      : Math.round(labelIndex * (dates.length - 1) / (labelCount - 1));
+    const date = getPointDate(dates[pointIndex]);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
 }
 
 function buildRows(
@@ -140,6 +368,10 @@ function buildRows(
       || row.recentPrs > 0
     )
     .sort((a, b) => {
+      const aOrder = MUSCLE_CARD_ORDER_INDEX.get(a.muscle) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = MUSCLE_CARD_ORDER_INDEX.get(b.muscle) ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
       const statusOrder = { watch: 0, strong: 1, steady: 2 };
       return statusOrder[a.status] - statusOrder[b.status]
         || b.progressing + b.regressing - (a.progressing + a.regressing)
@@ -147,7 +379,17 @@ function buildRows(
     });
 }
 
-function MuscleGroupCard({ row }: { row: MuscleRow }) {
+function MuscleGroupCard({
+  row,
+  volumeWeeks,
+  exercises,
+}: {
+  row: MuscleRow;
+  volumeWeeks: VolumeWeek[];
+  exercises: EnrichedExerciseHistory[];
+}) {
+  const [mode, setMode] = useState<ChartMode>('volume');
+  const [range, setRange] = useState<ChartRange>('3m');
   const statusColor = row.status === 'watch'
     ? COLORS.warning
     : row.status === 'strong'
@@ -163,6 +405,18 @@ function MuscleGroupCard({ row }: { row: MuscleRow }) {
     : row.status === 'strong'
       ? 'Strong'
       : 'Steady';
+  const cutoff = getCutoffDate(range);
+  const filteredVolumeWeeks = volumeWeeks.filter((week) => getPointDate(week.weekStart) >= cutoff);
+  const volumeValues = filteredVolumeWeeks.map((week) => week.muscles[row.muscle] || 0);
+  const volumeLabels = getChartLabels(filteredVolumeWeeks.map((week) => week.weekStart));
+  const representativeExercise = getRepresentativeExercise(row, exercises);
+  const strengthPoints = (representativeExercise?.history ?? [])
+    .filter((point) => getPointDate(point.date) >= cutoff);
+  const strengthValues = strengthPoints.map((point: ExerciseHistoryPoint) => Math.round(point.e1rmKg * 2.20462));
+  const strengthLabels = getChartLabels(strengthPoints.map((point) => point.date));
+  const summary = mode === 'volume'
+    ? getVolumeSummary(row)
+    : getStrengthSummary(row, representativeExercise, strengthPoints.length);
 
   return (
     <View style={styles.card}>
@@ -178,27 +432,70 @@ function MuscleGroupCard({ row }: { row: MuscleRow }) {
         </View>
       </View>
 
-      <View style={styles.metricRow}>
-        <View style={styles.metric}>
-          <Text style={styles.metricLabel}>Volume</Text>
-          <Text style={styles.metricValue}>{getVolumeLabel(row)}</Text>
+      <View style={styles.controlRow}>
+        <View style={styles.segmentGroup}>
+          {CHART_MODES.map((option) => {
+            const active = option.value === mode;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.segment, active && styles.segmentActive]}
+                onPress={() => setMode(option.value)}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-        <View style={styles.metricSmall}>
-          <Text style={styles.metricLabel}>PRs</Text>
-          <Text style={styles.metricValue}>{row.recentPrs} in 30d</Text>
+
+        <View style={styles.rangeGroup}>
+          {CHART_RANGES.map((option) => {
+            const active = option.value === range;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => setRange(option.value)}
+                activeOpacity={0.75}
+                hitSlop={8}
+              >
+                <Text style={[styles.rangeText, active && styles.rangeTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
-      <View style={styles.footerRow}>
-        <Ionicons
-          name={row.volumeDelta < -5 ? 'trending-down' : row.volumeDelta > 5 ? 'trending-up' : 'remove'}
-          size={15}
-          color={row.volumeDelta < -5 ? COLORS.warning : row.volumeDelta > 5 ? COLORS.success : COLORS.text_tertiary}
+      {mode === 'volume' ? (
+        <CompactLineChart
+          values={volumeValues}
+          labels={volumeLabels}
+          ySuffix=" sets"
+          guardrail={row.guardrail}
+          emptyText="No volume logged in this range"
         />
-        <Text style={styles.contextText}>
-          Volume {formatPercent(row.volumeDelta)} vs previous week
-          {row.topSignal ? ` · best signal: ${row.topSignal.exerciseName} ${formatPercent(row.topSignal.e1rmChangePercent)}` : ''}
-        </Text>
+      ) : (
+        <CompactLineChart
+          values={strengthValues}
+          labels={strengthLabels}
+          ySuffix=" lb"
+          emptyText="No strength trend in this range"
+        />
+      )}
+
+      <View style={styles.summaryRow}>
+        <Ionicons
+          name={mode === 'volume'
+            ? row.volumeDelta < -5 ? 'trending-down' : row.volumeDelta > 5 ? 'trending-up' : 'remove'
+            : row.regressing > row.progressing ? 'trending-down' : row.progressing > 0 ? 'trending-up' : 'remove'}
+          size={15}
+          color={row.status === 'watch' ? COLORS.warning : row.status === 'strong' ? COLORS.success : COLORS.text_tertiary}
+        />
+        <Text style={styles.contextText}>{summary}</Text>
       </View>
     </View>
   );
@@ -234,6 +531,26 @@ export default function MuscleGroupsTab({ muscleGroups }: MuscleGroupsTabProps) 
     },
   });
 
+  const volumeHistoryQuery = useQuery({
+    queryKey: ['training', 'volume-history', '6m'],
+    queryFn: async () => {
+      const res = await apiGet('/training/volume-history?range=6m');
+      if (!res.ok) return [] as VolumeWeek[];
+      const data = await res.json();
+      return (data.weeks || []) as VolumeWeek[];
+    },
+  });
+
+  const exerciseHistoryQuery = useQuery({
+    queryKey: ['training', 'exercise-history'],
+    queryFn: async () => {
+      const res = await apiGet('/training/exercise-history');
+      if (!res.ok) return [] as EnrichedExerciseHistory[];
+      const data = await res.json();
+      return (data.exercises || []) as EnrichedExerciseHistory[];
+    },
+  });
+
   const rows = useMemo(
     () => buildRows(
       muscleGroups,
@@ -244,7 +561,13 @@ export default function MuscleGroupsTab({ muscleGroups }: MuscleGroupsTabProps) 
     [muscleGroups, guardrailsQuery.data, progressionQuery.data, prFeedQuery.data],
   );
 
-  if (guardrailsQuery.isLoading || progressionQuery.isLoading || prFeedQuery.isLoading) {
+  if (
+    guardrailsQuery.isLoading
+    || progressionQuery.isLoading
+    || prFeedQuery.isLoading
+    || volumeHistoryQuery.isLoading
+    || exerciseHistoryQuery.isLoading
+  ) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={COLORS.accent_primary} />
@@ -267,7 +590,12 @@ export default function MuscleGroupsTab({ muscleGroups }: MuscleGroupsTabProps) 
         Strength, volume, and PR signals grouped by body area.
       </Text>
       {rows.map((row) => (
-        <MuscleGroupCard key={row.muscle} row={row} />
+        <MuscleGroupCard
+          key={row.muscle}
+          row={row}
+          volumeWeeks={volumeHistoryQuery.data ?? []}
+          exercises={exerciseHistoryQuery.data ?? []}
+        />
       ))}
     </View>
   );
@@ -334,39 +662,79 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  metricRow: {
+  controlRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
   },
-  metric: {
-    flex: 1.4,
+  segmentGroup: {
+    flexDirection: 'row',
     backgroundColor: COLORS.bg_secondary,
     borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
   },
-  metricSmall: {
-    flex: 1,
-    backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+  segment: {
+    minHeight: 30,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  metricLabel: {
+  segmentActive: {
+    backgroundColor: COLORS.bg_input,
+  },
+  segmentText: {
     color: COLORS.text_tertiary,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  metricValue: {
-    color: COLORS.text_primary,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 17,
   },
-  footerRow: {
+  segmentTextActive: {
+    color: COLORS.text_primary,
+  },
+  rangeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.md,
+  },
+  rangeText: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  rangeTextActive: {
+    color: COLORS.accent_primary,
+  },
+  chartPanel: {
+    backgroundColor: COLORS.bg_secondary,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  emptyChart: {
+    minHeight: 150,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    backgroundColor: COLORS.bg_secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  emptyChartText: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.border_subtle,

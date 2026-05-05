@@ -152,19 +152,17 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
       <Svg style={styles.cardGradient} width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id={`${gradientId}Bg`} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#202025" stopOpacity="1" />
-            <Stop offset="0.26" stopColor="#1D1D22" stopOpacity="1" />
-            <Stop offset="0.64" stopColor="#17171A" stopOpacity="1" />
-            <Stop offset="1" stopColor="#0E0E10" stopOpacity="1" />
+            <Stop offset="0" stopColor={COLORS.bg_secondary} stopOpacity="1" />
+            <Stop offset="1" stopColor={COLORS.bg_primary} stopOpacity="1" />
           </LinearGradient>
           <LinearGradient id={`${gradientId}Sheen`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.025" />
-            <Stop offset="0.38" stopColor="#FFFFFF" stopOpacity="0.008" />
-            <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+            <Stop offset="0" stopColor={COLORS.text_primary} stopOpacity="0.016" />
+            <Stop offset="0.34" stopColor={COLORS.text_primary} stopOpacity="0.005" />
+            <Stop offset="1" stopColor={COLORS.text_primary} stopOpacity="0" />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId}Bg)`} />
-        <Rect x="0" y="0" width="100%" height="52%" fill={`url(#${gradientId}Sheen)`} />
+        <Rect x="0" y="0" width="100%" height="48%" fill={`url(#${gradientId}Sheen)`} />
       </Svg>
       <View style={styles.cardHeader}>
         <View style={styles.muscleIcon}>
@@ -641,10 +639,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border_subtle,
   },
   card: {
-    backgroundColor: COLORS.bg_elevated,
+    backgroundColor: COLORS.bg_primary,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: '#202025',
+    borderColor: COLORS.border,
     marginBottom: SPACING.sm,
     overflow: 'hidden',
   },

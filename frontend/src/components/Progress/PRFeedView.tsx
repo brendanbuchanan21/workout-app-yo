@@ -64,15 +64,13 @@ export default function PRFeedView({ events }: PRFeedViewProps) {
               <Svg style={styles.cardGradient} width="100%" height="100%" preserveAspectRatio="none">
                 <Defs>
                   <LinearGradient id={`prCardBg-${i}`} x1="0" y1="0" x2="1" y2="1">
-                    <Stop offset="0" stopColor="#29292E" stopOpacity="1" />
-                    <Stop offset="0.22" stopColor="#232328" stopOpacity="1" />
-                    <Stop offset="0.58" stopColor="#1B1B20" stopOpacity="1" />
-                    <Stop offset="1" stopColor="#101012" stopOpacity="1" />
+                    <Stop offset="0" stopColor={COLORS.bg_secondary} stopOpacity="1" />
+                    <Stop offset="1" stopColor={COLORS.bg_primary} stopOpacity="1" />
                   </LinearGradient>
                   <LinearGradient id={`prCardSheen-${i}`} x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.045" />
-                    <Stop offset="0.34" stopColor="#FFFFFF" stopOpacity="0.015" />
-                    <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+                    <Stop offset="0" stopColor={COLORS.text_primary} stopOpacity="0.016" />
+                    <Stop offset="0.34" stopColor={COLORS.text_primary} stopOpacity="0.005" />
+                    <Stop offset="1" stopColor={COLORS.text_primary} stopOpacity="0" />
                   </LinearGradient>
                 </Defs>
                 <Rect x="0" y="0" width="100%" height="100%" fill={`url(#prCardBg-${i})`} />
@@ -156,10 +154,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   card: {
-    backgroundColor: COLORS.bg_elevated,
+    backgroundColor: COLORS.bg_primary,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: '#29292E',
+    borderColor: COLORS.border,
     marginBottom: SPACING.sm,
     overflow: 'hidden',
   },

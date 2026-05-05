@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiGet } from '../../utils/api';
-import { COLORS, SPACING } from '../../constants/theme';
+import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { ALL_MUSCLE_GROUPS } from '../../constants/training';
 import { EnrichedPREntry, PREvent } from '../../types/training';
 import PRSearchBar from './PRSearchBar';
@@ -46,6 +46,14 @@ export default function PRsTab() {
     return ALL_MUSCLE_GROUPS.filter((m) => musclesWithPRs.has(m));
   }, [prs]);
 
+  const filterCounts = useMemo(() => {
+    const counts: Record<string, number> = { recent: feedEvents.length };
+    for (const pr of prs) {
+      counts[pr.primaryMuscle] = (counts[pr.primaryMuscle] || 0) + 1;
+    }
+    return counts;
+  }, [feedEvents.length, prs]);
+
   const toggleExercise = (key: string) => {
     setExpandedExercise(expandedExercise === key ? null : key);
   };
@@ -76,6 +84,19 @@ export default function PRsTab() {
 
   return (
     <View>
+      <View style={styles.hero}>
+        <View>
+          <Text style={styles.heroLabel}>Record Book</Text>
+          <Text style={styles.heroValue}>{feedEvents.length}</Text>
+          <Text style={styles.heroMeta}>recent PR event{feedEvents.length === 1 ? '' : 's'}</Text>
+        </View>
+        <View style={styles.heroDivider} />
+        <View style={styles.heroStat}>
+          <Text style={styles.heroStatValue}>{prs.length}</Text>
+          <Text style={styles.heroStatLabel}>tracked lifts</Text>
+        </View>
+      </View>
+
       <PRSearchBar value={searchQuery} onChangeText={setSearchQuery} />
 
       {!searchActive && (
@@ -83,6 +104,7 @@ export default function PRsTab() {
           muscles={availableMuscles}
           selected={selectedMuscle}
           onSelect={setSelectedMuscle}
+          counts={filterCounts}
         />
       )}
 
@@ -120,5 +142,53 @@ const styles = StyleSheet.create({
   loading: {
     paddingVertical: SPACING.xxxl * 2,
     alignItems: 'center',
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  heroLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  heroValue: {
+    color: COLORS.accent_primary,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  heroMeta: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  heroDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: COLORS.border,
+    marginHorizontal: SPACING.lg,
+  },
+  heroStat: {
+    flex: 1,
+  },
+  heroStatValue: {
+    color: COLORS.text_primary,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  heroStatLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

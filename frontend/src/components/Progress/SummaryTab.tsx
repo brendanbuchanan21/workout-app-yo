@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Polygon, Polyline, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -97,21 +97,39 @@ function renderSparkline(signal: ExerciseSignal, tone: 'success' | 'warning' | '
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
-  const points = values
+  const pointList = values
     .map((value, index) => {
       const x = (index / Math.max(values.length - 1, 1)) * width;
       const y = 8 + (1 - (value - min) / range) * (height - 16);
-      return `${x},${y}`;
-    })
-    .join(' ');
+      return { x, y };
+    });
+  const points = pointList.map((point) => `${point.x},${point.y}`).join(' ');
+  const baselineY = height - 6;
+  const areaPoints = pointList.length > 1
+    ? `${pointList[0].x},${baselineY} ${points} ${pointList[pointList.length - 1].x},${baselineY}`
+    : '';
   const color = tone === 'warning'
-    ? COLORS.warning
+    ? '#E2A83C'
     : tone === 'success'
-      ? COLORS.success
-      : COLORS.accent_primary;
+      ? '#2FB861'
+      : COLORS.accent_light;
+  const fillId = `summarySpark${signal.catalogId || signal.exerciseName}`.replace(/[^a-zA-Z0-9]/g, '');
 
   return (
     <Svg width={width} height={height}>
+      <Defs>
+        <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} stopOpacity="0.14" />
+          <Stop offset="0.55" stopColor={color} stopOpacity="0.06" />
+          <Stop offset="1" stopColor={color} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      {areaPoints.length > 0 && (
+        <Polygon
+          points={areaPoints}
+          fill={`url(#${fillId})`}
+        />
+      )}
       <Polyline
         points={points}
         fill="none"
@@ -119,6 +137,7 @@ function renderSparkline(signal: ExerciseSignal, tone: 'success' | 'warning' | '
         strokeWidth={2.5}
         strokeLinejoin="round"
         strokeLinecap="round"
+        opacity={0.88}
       />
     </Svg>
   );

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
-import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
+import Svg, { Polyline, Line, Text as SvgText, Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -138,6 +138,7 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
   const opensDetail = !!onViewDetail && !!ex.catalogId;
   const signalCopy = getSignalCopy(progression);
   const signalMeta = getSignalMeta(ex, progression);
+  const gradientId = `exerciseCard${(ex.catalogId || ex.exerciseName).replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <TouchableOpacity
@@ -148,6 +149,23 @@ function ExerciseCard({ ex, isExpanded, onToggle, onViewDetail, progression, pha
       }}
       activeOpacity={0.7}
     >
+      <Svg style={styles.cardGradient} width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={`${gradientId}Bg`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#202025" stopOpacity="1" />
+            <Stop offset="0.26" stopColor="#1D1D22" stopOpacity="1" />
+            <Stop offset="0.64" stopColor="#17171A" stopOpacity="1" />
+            <Stop offset="1" stopColor="#0E0E10" stopOpacity="1" />
+          </LinearGradient>
+          <LinearGradient id={`${gradientId}Sheen`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.025" />
+            <Stop offset="0.38" stopColor="#FFFFFF" stopOpacity="0.008" />
+            <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId}Bg)`} />
+        <Rect x="0" y="0" width="100%" height="52%" fill={`url(#${gradientId}Sheen)`} />
+      </Svg>
       <View style={styles.cardHeader}>
         <View style={styles.muscleIcon}>
           <MuscleGroupIcon muscle={ex.primaryMuscle} size={32} />
@@ -422,7 +440,13 @@ export default function ExercisesTab({ onViewDetail }: ExercisesTabProps = {}) {
         ] as [ExerciseMode, string][]).map(([key, label]) => (
           <TouchableOpacity
             key={key}
-            style={[styles.modeChip, mode === key && styles.modeChipActive]}
+            style={[
+              styles.modeChip,
+              key === 'improving' && styles.modeChipImproving,
+              mode === key && styles.modeChipActive,
+              mode === key && key === 'improving' && styles.modeChipActiveImproving,
+              mode === key && key === 'all' && styles.modeChipActiveAll,
+            ]}
             activeOpacity={0.75}
             onPress={() => {
               setMode(key);
@@ -430,7 +454,15 @@ export default function ExercisesTab({ onViewDetail }: ExercisesTabProps = {}) {
               setSelectedMuscle(null);
             }}
           >
-            <Text style={[styles.modeChipText, mode === key && styles.modeChipTextActive]}>
+            <Text
+              style={[
+                styles.modeChipText,
+                key === 'improving' && styles.modeChipTextImproving,
+                mode === key && styles.modeChipTextActive,
+                mode === key && key === 'improving' && styles.modeChipTextActiveImproving,
+                mode === key && key === 'all' && styles.modeChipTextActiveAll,
+              ]}
+            >
               {label}
             </Text>
           </TouchableOpacity>
@@ -513,25 +545,51 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     borderRadius: RADIUS.md,
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.bg_primary,
     borderWidth: 1,
-    borderColor: COLORS.accent_primary,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
   },
+  modeChipImproving: {
+    borderColor: COLORS.border,
+  },
   modeChipActive: {
-    backgroundColor: COLORS.accent_fill,
+    backgroundColor: COLORS.bg_secondary,
     borderColor: COLORS.accent_primary,
+    shadowColor: COLORS.accent_primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modeChipActiveImproving: {
+    backgroundColor: '#111814',
+    borderColor: COLORS.success,
+    shadowColor: COLORS.success,
+  },
+  modeChipActiveAll: {
+    backgroundColor: COLORS.bg_secondary,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text_secondary,
   },
   modeChipText: {
-    color: COLORS.accent_light,
+    color: COLORS.text_secondary,
     fontSize: 12,
     fontWeight: '800',
     textAlign: 'center',
   },
   modeChipTextActive: {
     color: COLORS.accent_light,
+  },
+  modeChipTextImproving: {
+    color: COLORS.text_secondary,
+  },
+  modeChipTextActiveImproving: {
+    color: COLORS.success,
+  },
+  modeChipTextActiveAll: {
+    color: COLORS.text_primary,
   },
   emptyModeCard: {
     backgroundColor: COLORS.bg_elevated,
@@ -586,13 +644,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    padding: SPACING.lg,
+    borderColor: '#202025',
     marginBottom: SPACING.sm,
+    overflow: 'hidden',
+  },
+  cardGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: SPACING.lg,
   },
   muscleIcon: {
     width: 32,
@@ -640,7 +706,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   expanded: {
-    marginTop: SPACING.md,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border_subtle,

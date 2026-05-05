@@ -2,7 +2,17 @@ import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  LinearGradient,
+  Polygon,
+  Polyline,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
@@ -189,8 +199,8 @@ function CompactLineChart({
   emptyText: string;
 }) {
   const chartWidth = screenWidth - SPACING.xl * 2 - SPACING.lg * 2 - 2;
-  const chartHeight = 150;
-  const padding = { top: 16, right: 12, bottom: 26, left: 40 };
+  const chartHeight = 180;
+  const padding = { top: 20, right: 14, bottom: 34, left: 43 };
   const innerW = chartWidth - padding.left - padding.right;
   const innerH = chartHeight - padding.top - padding.bottom;
   const dataMax = values.reduce((max, value) => Math.max(max, value), 0);
@@ -202,6 +212,10 @@ function CompactLineChart({
   const yFor = (value: number) => padding.top + (1 - value / maxY) * innerH;
   const points = values.map((value, index) => `${xFor(index)},${yFor(value)}`).join(' ');
   const lastIndex = values.length - 1;
+  const baselineY = yFor(0);
+  const areaPoints = values.length > 1
+    ? `${padding.left},${baselineY} ${points} ${xFor(lastIndex)},${baselineY}`
+    : '';
 
   if (values.length === 0) {
     return (
@@ -214,24 +228,53 @@ function CompactLineChart({
   return (
     <View style={styles.chartPanel}>
       <Svg width={chartWidth} height={chartHeight}>
-        <Line
-          x1={padding.left}
-          y1={padding.top}
-          x2={chartWidth - padding.right}
-          y2={padding.top}
-          stroke={COLORS.border_subtle}
-          strokeWidth={1}
-          opacity={0.55}
+        <Defs>
+          <LinearGradient id="muscleChartFill" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={COLORS.accent_primary} stopOpacity="0.26" />
+            <Stop offset="0.55" stopColor={COLORS.accent_primary} stopOpacity="0.1" />
+            <Stop offset="1" stopColor={COLORS.accent_primary} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+
+        <Rect
+          x={padding.left}
+          y={padding.top}
+          width={innerW}
+          height={innerH}
+          fill={COLORS.bg_secondary}
         />
-        <Line
-          x1={padding.left}
-          y1={padding.top + innerH}
-          x2={chartWidth - padding.right}
-          y2={padding.top + innerH}
-          stroke={COLORS.border_subtle}
-          strokeWidth={1}
-          opacity={0.4}
-        />
+
+        {Array.from({ length: 13 }).map((_, index) => {
+          const x = padding.left + (index / 12) * innerW;
+          return (
+            <Line
+              key={`grid-x-${index}`}
+              x1={x}
+              y1={padding.top}
+              x2={x}
+              y2={padding.top + innerH}
+              stroke={COLORS.border}
+              strokeWidth={1}
+              opacity={0.55}
+            />
+          );
+        })}
+
+        {Array.from({ length: 4 }).map((_, index) => {
+          const y = padding.top + (index / 3) * innerH;
+          return (
+            <Line
+              key={`grid-y-${index}`}
+              x1={padding.left}
+              y1={y}
+              x2={chartWidth - padding.right}
+              y2={y}
+              stroke={COLORS.border}
+              strokeWidth={1}
+              opacity={0.42}
+            />
+          );
+        })}
 
         {guardrail && (
           <Rect
@@ -240,6 +283,7 @@ function CompactLineChart({
             width={innerW}
             height={Math.max(yFor(guardrail.floor) - yFor(guardrail.ceiling), 2)}
             fill={COLORS.accent_subtle}
+            opacity={0.45}
           />
         )}
 
@@ -251,10 +295,18 @@ function CompactLineChart({
             fontSize={9}
             fill={COLORS.text_tertiary}
             textAnchor="end"
+            opacity={0.75}
           >
             {value === maxY ? `${Math.round(value)}${ySuffix}` : '0'}
           </SvgText>
         ))}
+
+        {areaPoints.length > 0 && (
+          <Polygon
+            points={areaPoints}
+            fill="url(#muscleChartFill)"
+          />
+        )}
 
         <Polyline
           points={points}
@@ -273,7 +325,7 @@ function CompactLineChart({
             r={index === lastIndex ? 4.5 : 2.75}
             fill={COLORS.bg_secondary}
             stroke={COLORS.accent_primary}
-            strokeWidth={index === lastIndex ? 2.25 : 1.25}
+            strokeWidth={index === lastIndex ? 2.4 : 1.5}
           />
         ))}
 
@@ -288,6 +340,7 @@ function CompactLineChart({
               y={chartHeight - 5}
               fontSize={9}
               fill={COLORS.text_tertiary}
+              opacity={0.8}
               textAnchor={index === 0 ? 'start' : index === labels.length - 1 ? 'end' : 'middle'}
             >
               {label}
@@ -623,17 +676,17 @@ const styles = StyleSheet.create({
   },
   introText: {
     color: COLORS.text_tertiary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: SPACING.md,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: SPACING.lg,
   },
   card: {
     backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   headerRow: {
     flexDirection: 'row',
@@ -645,7 +698,7 @@ const styles = StyleSheet.create({
   },
   muscleName: {
     color: COLORS.text_primary,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     marginBottom: 4,
   },
@@ -655,8 +708,8 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 5,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
   },
   statusText: {
     fontSize: 11,
@@ -666,32 +719,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.md,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.lg,
     gap: SPACING.md,
   },
   segmentGroup: {
     flexDirection: 'row',
     backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
-    padding: 3,
+    borderRadius: RADIUS.sm,
+    padding: 2,
     borderWidth: 1,
     borderColor: COLORS.border_subtle,
   },
   segment: {
-    minHeight: 30,
+    minHeight: 34,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   segmentActive: {
-    backgroundColor: COLORS.bg_input,
+    backgroundColor: '#303036',
   },
   segmentText: {
     color: COLORS.text_tertiary,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
   },
   segmentTextActive: {
     color: COLORS.text_primary,
@@ -703,25 +756,25 @@ const styles = StyleSheet.create({
   },
   rangeText: {
     color: COLORS.text_tertiary,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
   },
   rangeTextActive: {
     color: COLORS.accent_primary,
   },
   chartPanel: {
     backgroundColor: COLORS.bg_secondary,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     alignItems: 'center',
     overflow: 'hidden',
   },
   emptyChart: {
-    minHeight: 150,
-    borderRadius: RADIUS.md,
+    minHeight: 180,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     backgroundColor: COLORS.bg_secondary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -737,14 +790,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border_subtle,
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
+    borderTopColor: COLORS.border,
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.lg,
   },
   contextText: {
     flex: 1,
     color: COLORS.text_secondary,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

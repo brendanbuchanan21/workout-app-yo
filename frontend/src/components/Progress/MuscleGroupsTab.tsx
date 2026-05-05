@@ -441,7 +441,7 @@ function MuscleGroupCard({
   volumeWeeks: VolumeWeek[];
   exercises: EnrichedExerciseHistory[];
 }) {
-  const [mode, setMode] = useState<ChartMode>('volume');
+  const [mode, setMode] = useState<ChartMode>('strength');
   const [range, setRange] = useState<ChartRange>('3m');
   const statusColor = row.status === 'watch'
     ? COLORS.warning

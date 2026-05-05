@@ -1,12 +1,25 @@
+import { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  LinearGradient,
+  Polygon,
+  Polyline,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { TimeRange } from './TimeRangePicker';
+import { getDateDomain, getDateTicks, getDateX } from './chartAxis';
 
 interface Session {
   date: string;
   totalTonnageKg: number;
+  totalSets: number;
 }
 
 interface TonnageChartProps {
@@ -16,117 +29,219 @@ interface TonnageChartProps {
 
 const screenWidth = Dimensions.get('window').width;
 
-function formatMonthLabel(date: string, includeYear: boolean): string {
-  const d = new Date(`${date}T12:00:00`);
-  const month = d.toLocaleDateString('en-US', { month: 'short' });
-  if (!includeYear) return month;
-  return `${month} '${String(d.getFullYear()).slice(-2)}`;
+function formatSessionDate(date: string): string {
+  return new Date(`${date.split('T')[0]}T12:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatTonnage(kg: number): string {
+  const lbs = Math.round(kg * 2.20462);
+  return lbs >= 1000 ? `${(lbs / 1000).toFixed(lbs >= 10000 ? 0 : 1)}k lb` : `${lbs} lb`;
 }
 
 export default function TonnageChart({ sessions, range }: TonnageChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   if (sessions.length < 2) return null;
 
   const sortedSessions = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   const chartWidth = screenWidth - SPACING.xl * 2;
-  const chartHeight = 160;
-  const padding = { top: 10, right: 15, bottom: 25, left: 50 };
+  const chartHeight = 220;
+  const padding = { top: 20, right: 16, bottom: 36, left: 50 };
   const innerW = chartWidth - padding.left - padding.right;
   const innerH = chartHeight - padding.top - padding.bottom;
 
+  const { start, end, spansYears } = getDateDomain(sortedSessions.map((s) => s.date), range);
+  const xLabels = getDateTicks(start, end, padding.left, innerW, spansYears || range === 'all');
+
   const tonnages = sortedSessions.map((s) => s.totalTonnageKg);
-  const maxT = Math.max(...tonnages) * 1.1;
-  const barWidth = Math.max(4, Math.min(20, (innerW / sortedSessions.length) * 0.7));
-  const barGap = (innerW - barWidth * sortedSessions.length) / Math.max(sortedSessions.length - 1, 1);
-  const spansYears = sortedSessions[0].date.slice(0, 4) !== sortedSessions[sortedSessions.length - 1].date.slice(0, 4);
+  const maxT = Math.max(...tonnages) * 1.08;
+  const minT = Math.min(...tonnages) * 0.92;
+  const tonnageRange = maxT - minT || 1;
 
-  const monthLabels: { x: number; label: string }[] = [];
-  let lastMonth = '';
-  for (let i = 0; i < sortedSessions.length; i++) {
-    const monthKey = sortedSessions[i].date.slice(0, 7);
-    if (monthKey !== lastMonth) {
-      monthLabels.push({
-        x: padding.left + i * (barWidth + barGap) + barWidth / 2,
-        label: formatMonthLabel(sortedSessions[i].date, spansYears || range === 'all'),
-      });
-      lastMonth = monthKey;
-    }
-  }
+  const dataPoints = sortedSessions.map((session) => ({
+    x: getDateX(session.date, start, end, padding.left, innerW),
+    y: padding.top + (1 - (session.totalTonnageKg - minT) / tonnageRange) * innerH,
+  }));
 
-  const maxLabels = 4;
-  const xLabels = monthLabels.length <= maxLabels
-    ? monthLabels
-    : monthLabels.filter((_, index) => (
-      index === 0
-      || index === monthLabels.length - 1
-      || index % Math.ceil(monthLabels.length / maxLabels) === 0
-    ));
+  const polylinePoints = dataPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const baselineY = padding.top + innerH;
+  const areaPoints = dataPoints.length > 1
+    ? `${dataPoints[0].x},${baselineY} ${polylinePoints} ${dataPoints[dataPoints.length - 1].x},${baselineY}`
+    : '';
+  const activePoint = activeIndex !== null ? dataPoints[activeIndex] : null;
+  const activeSession = activeIndex !== null ? sortedSessions[activeIndex] : null;
+
+  const setActiveFromX = (locationX: number) => {
+    const boundedX = Math.max(padding.left, Math.min(locationX, chartWidth - padding.right));
+    let nearestIndex = 0;
+    let nearestDistance = Number.MAX_SAFE_INTEGER;
+
+    dataPoints.forEach((point, index) => {
+      const distance = Math.abs(point.x - boundedX);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+
+    setActiveIndex(nearestIndex);
+  };
+
+  const responderHandlers = {
+    onStartShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => true,
+    onResponderGrant: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderMove: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderRelease: () => setActiveIndex(null),
+    onResponderTerminate: () => setActiveIndex(null),
+    onMouseMove: (event: any) => {
+      const locationX = event.nativeEvent?.locationX ?? event.nativeEvent?.offsetX;
+      if (typeof locationX === 'number') setActiveFromX(locationX);
+    },
+    onMouseLeave: () => setActiveIndex(null),
+  } as any;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Session Tonnage</Text>
-      <View style={{ alignItems: 'center' }}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Session Workload</Text>
+        {activeSession && (
+          <View style={styles.readout}>
+            <Text style={styles.readoutValue}>{formatTonnage(activeSession.totalTonnageKg)}</Text>
+            <Text style={styles.readoutMeta}>
+              {formatSessionDate(activeSession.date)} · {activeSession.totalSets} set{activeSession.totalSets === 1 ? '' : 's'}
+            </Text>
+          </View>
+        )}
+      </View>
+      {!activeSession && (
+        <Text style={styles.chartHint}>Drag chart for details</Text>
+      )}
+      <View style={styles.chartWrap} {...responderHandlers}>
         <Svg width={chartWidth} height={chartHeight}>
-          {/* Horizontal grid */}
-          {[0, 0.5, 1].map((frac, i) => {
-            const y = padding.top + (1 - frac) * innerH;
-            const val = frac * maxT * 2.20462;
-            return (
-              <View key={`g${i}`}>
-                <Line
-                  x1={padding.left}
-                  y1={y}
-                  x2={chartWidth - padding.right}
-                  y2={y}
-                  stroke={COLORS.border_subtle}
-                  strokeWidth={1}
-                />
-                <SvgText
-                  x={padding.left - 6}
-                  y={y + 4}
-                  fontSize={9}
-                  fill={COLORS.text_tertiary}
-                  textAnchor="end"
-                >
-                  {val >= 1000 ? `${(val / 1000).toFixed(0)}k` : Math.round(val)}
-                </SvgText>
-              </View>
-            );
-          })}
+          <Defs>
+            <LinearGradient id="tonnageChartFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={COLORS.accent_primary} stopOpacity="0.26" />
+              <Stop offset="0.55" stopColor={COLORS.accent_primary} stopOpacity="0.1" />
+              <Stop offset="1" stopColor={COLORS.accent_primary} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
 
-          {/* Bars */}
-          {sortedSessions.map((s, i) => {
-            const barHeight = maxT > 0 ? (s.totalTonnageKg / maxT) * innerH : 0;
-            const x = padding.left + i * (barWidth + barGap);
-            const y = padding.top + innerH - barHeight;
-            const isLast = i === sortedSessions.length - 1;
+          <Rect
+            x={padding.left}
+            y={padding.top}
+            width={innerW}
+            height={innerH}
+            fill={COLORS.bg_secondary}
+          />
 
+          {Array.from({ length: 13 }).map((_, index) => {
+            const x = padding.left + (index / 12) * innerW;
             return (
-              <Rect
-                key={i}
-                x={x}
-                y={y}
-                width={barWidth}
-                height={barHeight}
-                rx={2}
-                fill={isLast ? COLORS.accent_primary : COLORS.accent_muted}
-                opacity={isLast ? 1 : 0.6}
+              <Line
+                key={`gx-${index}`}
+                x1={x}
+                y1={padding.top}
+                x2={x}
+                y2={padding.top + innerH}
+                stroke={COLORS.border}
+                strokeWidth={1}
+                opacity={0.55}
               />
             );
           })}
 
-          {/* X-axis labels */}
-          {xLabels.map(({ x, label }, i) => (
+          {Array.from({ length: 4 }).map((_, index) => {
+            const y = padding.top + (index / 3) * innerH;
+            return (
+              <Line
+                key={`gy-${index}`}
+                x1={padding.left}
+                y1={y}
+                x2={chartWidth - padding.right}
+                y2={y}
+                stroke={COLORS.border}
+                strokeWidth={1}
+                opacity={0.42}
+              />
+            );
+          })}
+
+          {[0, 0.5, 1].map((frac, index) => {
+            const y = padding.top + (1 - frac) * innerH;
+            const value = minT + frac * tonnageRange;
+            return (
+              <SvgText
+                key={`yl-${index}`}
+                x={padding.left - 6}
+                y={y + 4}
+                fontSize={10}
+                fill={COLORS.text_tertiary}
+                textAnchor="end"
+                opacity={0.75}
+              >
+                {formatTonnage(value).replace(' lb', '')}
+              </SvgText>
+            );
+          })}
+
+          {xLabels.map(({ x, label }, index) => (
             <SvgText
-              key={`xl${i}`}
+              key={`xl-${index}`}
               x={x}
               y={chartHeight - 4}
               fontSize={9}
               fill={COLORS.text_tertiary}
+              opacity={0.8}
               textAnchor="middle"
             >
               {label}
             </SvgText>
           ))}
+
+          {areaPoints.length > 0 && (
+            <Polygon points={areaPoints} fill="url(#tonnageChartFill)" />
+          )}
+
+          <Polyline
+            points={polylinePoints}
+            fill="none"
+            stroke={COLORS.accent_primary}
+            strokeWidth={2.25}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+
+          {activePoint && (
+            <>
+              <Line
+                x1={activePoint.x}
+                y1={padding.top}
+                x2={activePoint.x}
+                y2={padding.top + innerH}
+                stroke={COLORS.accent_primary}
+                strokeWidth={1}
+                opacity={0.55}
+              />
+              <Circle
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={7}
+                fill={COLORS.accent_glow}
+              />
+              <Circle
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={4.5}
+                fill={COLORS.bg_secondary}
+                stroke={COLORS.accent_primary}
+                strokeWidth={2.25}
+              />
+            </>
+          )}
         </Svg>
       </View>
     </View>
@@ -136,16 +251,47 @@ export default function TonnageChart({ sessions, range }: TonnageChartProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.bg_elevated,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
   },
+  headerRow: {
+    minHeight: 42,
+    marginBottom: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
   title: {
     color: COLORS.text_primary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  chartHint: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: -SPACING.sm,
     marginBottom: SPACING.sm,
+  },
+  chartWrap: {
+    alignItems: 'center',
+  },
+  readout: {
+    alignItems: 'flex-end',
+  },
+  readoutValue: {
+    color: COLORS.text_primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  readoutMeta: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

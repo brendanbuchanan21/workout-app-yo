@@ -35,7 +35,7 @@ export default function VolumeSummaryStats({ sessions }: VolumeSummaryStatsProps
   return (
     <View style={styles.row}>
       <View style={styles.box}>
-        <Text style={styles.label}>Current Volume</Text>
+        <Text style={styles.label}>Current Workload</Text>
         <Text style={styles.value}>{formatTonnage(latest.totalTonnageKg)}</Text>
         {delta !== null && delta !== 0 ? (
           <Text style={[styles.delta, { color: delta > 0 ? COLORS.success : COLORS.danger }]}>
@@ -44,7 +44,7 @@ export default function VolumeSummaryStats({ sessions }: VolumeSummaryStatsProps
         ) : null}
       </View>
       <View style={[styles.box, styles.boxMiddle]}>
-        <Text style={styles.label}>Peak Volume</Text>
+        <Text style={styles.label}>Peak Workload</Text>
         <Text style={styles.value}>{formatTonnage(peak.totalTonnageKg)}</Text>
         <Text style={styles.subLabel}>{formatDate(peak.date)}</Text>
       </View>

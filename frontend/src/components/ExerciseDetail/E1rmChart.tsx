@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, {
+  Circle,
   Defs,
   Line,
   LinearGradient,
@@ -28,7 +30,16 @@ interface E1rmChartProps {
 
 const screenWidth = Dimensions.get('window').width;
 
+function formatSessionDate(date: string): string {
+  return new Date(`${date.split('T')[0]}T12:00:00`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   if (sessions.length < 2) return null;
 
   const sortedSessions = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
@@ -60,11 +71,59 @@ export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProp
 
   // Peak e1RM dashed line
   const peakY = padding.top + (1 - (peakE1rmKg - minE) / e1rmRange) * innerH;
+  const activePoint = activeIndex !== null ? dataPoints[activeIndex] : null;
+  const activeSession = activeIndex !== null ? sortedSessions[activeIndex] : null;
+
+  const setActiveFromX = (locationX: number) => {
+    const boundedX = Math.max(padding.left, Math.min(locationX, chartWidth - padding.right));
+    let nearestIndex = 0;
+    let nearestDistance = Number.MAX_SAFE_INTEGER;
+
+    dataPoints.forEach((point, index) => {
+      const distance = Math.abs(point.x - boundedX);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+
+    setActiveIndex(nearestIndex);
+  };
+
+  const responderHandlers = {
+    onStartShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => true,
+    onResponderGrant: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderMove: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderRelease: () => setActiveIndex(null),
+    onResponderTerminate: () => setActiveIndex(null),
+    onMouseMove: (event: any) => {
+      const locationX = event.nativeEvent?.locationX ?? event.nativeEvent?.offsetX;
+      if (typeof locationX === 'number') setActiveFromX(locationX);
+    },
+    onMouseLeave: () => setActiveIndex(null),
+  } as any;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Estimated 1RM</Text>
-      <View style={{ alignItems: 'center' }}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Estimated 1RM</Text>
+        {activeSession && (
+          <View style={styles.readout}>
+            <Text style={styles.readoutValue}>
+              {Math.round(activeSession.e1rmKg * 2.20462)} lb
+            </Text>
+            <Text style={styles.readoutMeta}>
+              {formatSessionDate(activeSession.date)}
+              {activeSession.isPR ? ' · PR' : ''}
+            </Text>
+          </View>
+        )}
+      </View>
+      {!activeSession && (
+        <Text style={styles.chartHint}>Drag chart for details</Text>
+      )}
+      <View style={styles.chartWrap} {...responderHandlers}>
         <Svg width={chartWidth} height={chartHeight}>
           <Defs>
             <LinearGradient id="e1rmChartFill" x1="0" y1="0" x2="0" y2="1">
@@ -177,6 +236,33 @@ export default function E1rmChart({ sessions, peakE1rmKg, range }: E1rmChartProp
             strokeLinecap="round"
           />
 
+          {activePoint && (
+            <>
+              <Line
+                x1={activePoint.x}
+                y1={padding.top}
+                x2={activePoint.x}
+                y2={padding.top + innerH}
+                stroke={COLORS.accent_primary}
+                strokeWidth={1}
+                opacity={0.55}
+              />
+              <Circle
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={7}
+                fill={COLORS.accent_glow}
+              />
+              <Circle
+                cx={activePoint.x}
+                cy={activePoint.y}
+                r={4.5}
+                fill={COLORS.bg_secondary}
+                stroke={COLORS.accent_primary}
+                strokeWidth={2.25}
+              />
+            </>
+          )}
         </Svg>
       </View>
     </View>
@@ -196,6 +282,37 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
     fontSize: 16,
     fontWeight: '800',
+  },
+  headerRow: {
+    minHeight: 42,
     marginBottom: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  chartWrap: {
+    alignItems: 'center',
+  },
+  chartHint: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: -SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  readout: {
+    alignItems: 'flex-end',
+  },
+  readoutValue: {
+    color: COLORS.text_primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  readoutMeta: {
+    color: COLORS.text_tertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

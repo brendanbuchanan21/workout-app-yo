@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { formatWeight } from '../../utils/format';
 
@@ -28,7 +30,7 @@ interface SessionListProps {
   onToggle: (date: string) => void;
 }
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 export default function SessionList({ sessions, expandedSession, onToggle }: SessionListProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -80,6 +82,7 @@ export default function SessionList({ sessions, expandedSession, onToggle }: Ses
               </Text>
               {session.isPR && (
                 <View style={styles.prBadge}>
+                  <Ionicons name="trophy" size={12} color={COLORS.accent_primary} />
                   <Text style={styles.prBadgeText}>PR</Text>
                 </View>
               )}
@@ -168,6 +171,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   prBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: COLORS.accent_subtle,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,

@@ -155,7 +155,6 @@ export default function ExerciseDetailScreen() {
               <PeriodComparison {...detail.periodComparison} range={range} />
             )}
 
-            <TonnageChart sessions={detail.sessions} range={range} />
 
             <SessionList
               sessions={detail.sessions}

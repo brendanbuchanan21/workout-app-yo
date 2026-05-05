@@ -188,16 +188,19 @@ function getRepresentativeExercise(
 function CompactLineChart({
   values,
   labels,
+  readoutLabels,
   ySuffix,
   guardrail,
   emptyText,
 }: {
   values: number[];
   labels: string[];
+  readoutLabels: string[];
   ySuffix: string;
   guardrail?: Guardrail;
   emptyText: string;
 }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const chartWidth = screenWidth - SPACING.xl * 2 - SPACING.lg * 2 - 2;
   const chartHeight = 180;
   const padding = { top: 20, right: 14, bottom: 34, left: 43 };
@@ -216,6 +219,33 @@ function CompactLineChart({
   const areaPoints = values.length > 1
     ? `${padding.left},${baselineY} ${points} ${xFor(lastIndex)},${baselineY}`
     : '';
+  const activePoint = activeIndex !== null
+    ? { x: xFor(activeIndex), y: yFor(values[activeIndex]), value: values[activeIndex] }
+    : null;
+
+  const setActiveFromX = (locationX: number) => {
+    const boundedX = Math.max(padding.left, Math.min(locationX, chartWidth - padding.right));
+    const nearestIndex = values.reduce((nearest, _, index) => {
+      return Math.abs(xFor(index) - boundedX) < Math.abs(xFor(nearest) - boundedX)
+        ? index
+        : nearest;
+    }, 0);
+    setActiveIndex(nearestIndex);
+  };
+
+  const responderHandlers = {
+    onStartShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => true,
+    onResponderGrant: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderMove: (event: any) => setActiveFromX(event.nativeEvent.locationX),
+    onResponderRelease: () => setActiveIndex(null),
+    onResponderTerminate: () => setActiveIndex(null),
+    onMouseMove: (event: any) => {
+      const locationX = event.nativeEvent?.locationX ?? event.nativeEvent?.offsetX;
+      if (typeof locationX === 'number') setActiveFromX(locationX);
+    },
+    onMouseLeave: () => setActiveIndex(null),
+  } as any;
 
   if (values.length === 0) {
     return (
@@ -226,7 +256,18 @@ function CompactLineChart({
   }
 
   return (
-    <View style={styles.chartPanel}>
+    <View style={styles.chartPanel} {...responderHandlers}>
+      {activeIndex !== null && (
+        <View style={styles.chartReadout}>
+          <Text style={styles.chartReadoutValue}>
+            {Math.round(values[activeIndex])}{ySuffix}
+          </Text>
+          <Text style={styles.chartReadoutMeta}>{readoutLabels[activeIndex]}</Text>
+        </View>
+      )}
+      {activeIndex === null && (
+        <Text style={styles.chartHint}>Drag chart for details</Text>
+      )}
       <Svg width={chartWidth} height={chartHeight}>
         <Defs>
           <LinearGradient id="muscleChartFill" x1="0" y1="0" x2="0" y2="1">
@@ -317,18 +358,6 @@ function CompactLineChart({
           strokeLinecap="round"
         />
 
-        {values.map((value, index) => (
-          <Circle
-            key={`point-${index}`}
-            cx={xFor(index)}
-            cy={yFor(value)}
-            r={index === lastIndex ? 4.5 : 2.75}
-            fill={COLORS.bg_secondary}
-            stroke={COLORS.accent_primary}
-            strokeWidth={index === lastIndex ? 2.4 : 1.5}
-          />
-        ))}
-
         {labels.map((label, index) => {
           const x = labels.length === 1
             ? padding.left
@@ -347,9 +376,41 @@ function CompactLineChart({
             </SvgText>
           );
         })}
+
+        {activePoint && (
+          <>
+            <Line
+              x1={activePoint.x}
+              y1={padding.top}
+              x2={activePoint.x}
+              y2={padding.top + innerH}
+              stroke={COLORS.accent_primary}
+              strokeWidth={1}
+              opacity={0.55}
+            />
+            <Circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r={7}
+              fill={COLORS.accent_glow}
+            />
+            <Circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r={4.5}
+              fill={COLORS.bg_secondary}
+              stroke={COLORS.accent_primary}
+              strokeWidth={2.25}
+            />
+          </>
+        )}
       </Svg>
     </View>
   );
+}
+
+function formatChartDate(date: string): string {
+  return getPointDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function getChartLabels(dates: string[]): string[] {
@@ -462,11 +523,13 @@ function MuscleGroupCard({
   const filteredVolumeWeeks = volumeWeeks.filter((week) => getPointDate(week.weekStart) >= cutoff);
   const volumeValues = filteredVolumeWeeks.map((week) => week.muscles[row.muscle] || 0);
   const volumeLabels = getChartLabels(filteredVolumeWeeks.map((week) => week.weekStart));
+  const volumeReadoutLabels = filteredVolumeWeeks.map((week) => formatChartDate(week.weekStart));
   const representativeExercise = getRepresentativeExercise(row, exercises);
   const strengthPoints = (representativeExercise?.history ?? [])
     .filter((point) => getPointDate(point.date) >= cutoff);
   const strengthValues = strengthPoints.map((point: ExerciseHistoryPoint) => Math.round(point.e1rmKg * 2.20462));
   const strengthLabels = getChartLabels(strengthPoints.map((point) => point.date));
+  const strengthReadoutLabels = strengthPoints.map((point) => formatChartDate(point.date));
   const summary = mode === 'volume'
     ? getVolumeSummary(row)
     : getStrengthSummary(row, representativeExercise, strengthPoints.length);
@@ -527,6 +590,7 @@ function MuscleGroupCard({
         <CompactLineChart
           values={volumeValues}
           labels={volumeLabels}
+          readoutLabels={volumeReadoutLabels}
           ySuffix=" sets"
           guardrail={row.guardrail}
           emptyText="No volume logged in this range"
@@ -535,6 +599,7 @@ function MuscleGroupCard({
         <CompactLineChart
           values={strengthValues}
           labels={strengthLabels}
+          readoutLabels={strengthReadoutLabels}
           ySuffix=" lb"
           emptyText="No strength trend in this range"
         />
@@ -769,6 +834,42 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     overflow: 'hidden',
+  },
+  chartReadout: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.md,
+    zIndex: 1,
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(12, 12, 14, 0.72)',
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+  },
+  chartHint: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.md,
+    zIndex: 1,
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    backgroundColor: 'rgba(12, 12, 14, 0.58)',
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    overflow: 'hidden',
+  },
+  chartReadoutValue: {
+    color: COLORS.text_primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  chartReadoutMeta: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
   },
   emptyChart: {
     minHeight: 180,

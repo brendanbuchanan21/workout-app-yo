@@ -54,7 +54,7 @@ export default function PeriodComparison(props: PeriodComparisonProps) {
         endValue={`${formatWeight(props.endAvgBestWeight)} x ${props.endAvgBestReps}`}
       />
 
-      <View style={styles.changeRow}>
+      <View style={[styles.changeRow, isPositive ? styles.changeRowUp : styles.changeRowDown]}>
         <Text style={[styles.changeText, { color: isPositive ? COLORS.success : COLORS.danger }]}>
           {isPositive ? '+' : ''}{props.changePercent.toFixed(1)}% e1RM {isPositive ? '↑' : '↓'}
         </Text>
@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
   },
   title: {
     color: COLORS.text_primary,
@@ -147,9 +148,18 @@ const styles = StyleSheet.create({
   changeRow: {
     alignItems: 'center',
     marginTop: SPACING.md,
-    paddingTop: SPACING.md,
+    marginHorizontal: -SPACING.lg,
+    marginBottom: -SPACING.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     borderTopWidth: 1,
     borderTopColor: COLORS.border_subtle,
+  },
+  changeRowUp: {
+    backgroundColor: COLORS.success_subtle,
+  },
+  changeRowDown: {
+    backgroundColor: COLORS.danger_subtle,
   },
   changeText: {
     fontSize: 16,

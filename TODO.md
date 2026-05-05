@@ -42,3 +42,5 @@
 [ ] Need to fix the whole body weight thing because you could be 10 lbs lighter and hit more reps but it might not be an actual pr. we need to take into account body weight entry. 
 
 [ ] Perhaps we need to add tempo into each exercise mix to make sure that we get a more accurate 1rm estimate.
+
+[ ] We have estimated 1rm, but how would that mess up the ui if someone has recorded an actual 1 rep max at 0 rir?

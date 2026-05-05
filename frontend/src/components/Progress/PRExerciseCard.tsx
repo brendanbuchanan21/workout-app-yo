@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { MUSCLE_LABELS } from '../../constants/training';
 import { EnrichedPREntry } from '../../types/training';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface PRExerciseCardProps {
   pr: EnrichedPREntry;
@@ -17,57 +18,62 @@ function formatWeight(kg: number): string {
 
 export default function PRExerciseCard({ pr, isExpanded, onToggle }: PRExerciseCardProps) {
   const topRecord = pr.records[0];
+  const gradientKey = pr.catalogId || pr.exerciseName;
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={styles.rowWrap}
       onPress={onToggle}
       activeOpacity={0.7}
     >
-      <View style={styles.header}>
-        <View style={styles.info}>
-          <View style={styles.titleRow}>
-            <Text style={styles.name}>{pr.exerciseName}</Text>
-            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.text_tertiary} />
+      <CardGradientSurface gradientId={`progressPRExercise-${gradientKey}`} style={styles.card}>
+        <View style={styles.header}>
+          <View style={styles.info}>
+            <View style={styles.titleRow}>
+              <Text style={styles.name}>{pr.exerciseName}</Text>
+              <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.text_tertiary} />
+            </View>
+            <Text style={styles.meta}>
+              {pr.records.length} weight{pr.records.length !== 1 ? 's' : ''} tracked
+            </Text>
           </View>
-          <Text style={styles.meta}>
-            {pr.records.length} weight{pr.records.length !== 1 ? 's' : ''} tracked
-          </Text>
+          <Text style={styles.muscleTag}>{MUSCLE_LABELS[pr.primaryMuscle] || pr.primaryMuscle}</Text>
+          {topRecord && (
+            <View style={styles.best}>
+              <Text style={styles.bestWeight}>{formatWeight(topRecord.weightKg)}</Text>
+              <Text style={styles.bestReps}>x {topRecord.reps}</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.muscleTag}>{MUSCLE_LABELS[pr.primaryMuscle] || pr.primaryMuscle}</Text>
-        {topRecord && (
-          <View style={styles.best}>
-            <Text style={styles.bestWeight}>{formatWeight(topRecord.weightKg)}</Text>
-            <Text style={styles.bestReps}>x {topRecord.reps}</Text>
+
+        {isExpanded && (
+          <View style={styles.expanded}>
+            {pr.records.map((rec, i) => (
+              <View key={i} style={styles.recordRow}>
+                <Text style={styles.recordWeight}>{formatWeight(rec.weightKg)}</Text>
+                <Text style={styles.recordReps}>{rec.reps} reps</Text>
+                <Text style={styles.recordDate}>
+                  {new Date(rec.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
-      </View>
-
-      {isExpanded && (
-        <View style={styles.expanded}>
-          {pr.records.map((rec, i) => (
-            <View key={i} style={styles.recordRow}>
-              <Text style={styles.recordWeight}>{formatWeight(rec.weightKg)}</Text>
-              <Text style={styles.recordReps}>{rec.reps} reps</Text>
-              <Text style={styles.recordDate}>
-                {new Date(rec.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      </CardGradientSurface>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  rowWrap: {
+    marginBottom: SPACING.sm,
+  },
   card: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: SPACING.lg,
-    marginBottom: SPACING.sm,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',

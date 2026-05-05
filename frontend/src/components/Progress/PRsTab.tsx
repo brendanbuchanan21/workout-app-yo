@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { apiGet } from '../../utils/api';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 import { ALL_MUSCLE_GROUPS } from '../../constants/training';
 import { EnrichedPREntry, PREvent } from '../../types/training';
 import PRSearchBar from './PRSearchBar';
@@ -84,18 +85,20 @@ export default function PRsTab() {
 
   return (
     <View>
-      <View style={styles.hero}>
-        <View>
-          <Text style={styles.heroLabel}>Record Book</Text>
-          <Text style={styles.heroValue}>{feedEvents.length}</Text>
-          <Text style={styles.heroMeta}>recent PR event{feedEvents.length === 1 ? '' : 's'}</Text>
+      <CardGradientSurface gradientId="progressRecordsHero" style={styles.hero}>
+        <View style={styles.heroInner}>
+          <View>
+            <Text style={styles.heroLabel}>Record Book</Text>
+            <Text style={styles.heroValue}>{feedEvents.length}</Text>
+            <Text style={styles.heroMeta}>recent PR event{feedEvents.length === 1 ? '' : 's'}</Text>
+          </View>
+          <View style={styles.heroDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{prs.length}</Text>
+            <Text style={styles.heroStatLabel}>tracked lifts</Text>
+          </View>
         </View>
-        <View style={styles.heroDivider} />
-        <View style={styles.heroStat}>
-          <Text style={styles.heroStatValue}>{prs.length}</Text>
-          <Text style={styles.heroStatLabel}>tracked lifts</Text>
-        </View>
-      </View>
+      </CardGradientSurface>
 
       <PRSearchBar value={searchQuery} onChangeText={setSearchQuery} />
 
@@ -144,14 +147,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.bg_elevated,
+    marginBottom: SPACING.md,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  heroInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: SPACING.lg,
-    marginBottom: SPACING.md,
   },
   heroLabel: {
     color: COLORS.text_tertiary,

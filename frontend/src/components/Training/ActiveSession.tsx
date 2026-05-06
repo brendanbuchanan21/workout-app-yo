@@ -7,7 +7,6 @@ import { MUSCLE_LABELS } from '../../constants/training';
 import { CatalogExercise, TodayContext } from '../../types/training';
 import { kgToLbs } from '../../utils/setLogging';
 import { CardGradientSurface } from '../shared/CardGradientSurface';
-import MuscleGroupIcon from '../MuscleGroupIcon';
 import ExerciseSearchPanel from './ExerciseSearchPanel';
 import SetRow from './SetRow';
 
@@ -116,9 +115,6 @@ export default function ActiveSession({
           </View>
 
           <View style={styles.nowMain}>
-            <View style={styles.musclePanel}>
-              <MuscleGroupIcon muscle={exercise.muscleGroup} size={128} framed={false} background={false} />
-            </View>
             <View style={styles.nowContent}>
               <Text style={styles.exerciseTitle}>{exercise.exerciseName}</Text>
               <Text style={styles.exerciseMuscle}>{currentMuscleLabel}</Text>
@@ -407,16 +403,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   nowMain: {
-    flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.lg,
-    gap: SPACING.md,
-  },
-  musclePanel: {
-    width: 128,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -SPACING.sm,
   },
   nowContent: {
     flex: 1,

@@ -352,6 +352,70 @@ router.post('/session/:id/exercise', requireAuth, async (req: AuthRequest, res: 
   }
 });
 
+const replaceExerciseSchema = z.object({
+  catalogId: z.string().min(1),
+  exerciseName: z.string().min(1),
+  muscleGroup: z.string().min(1),
+});
+
+router.put('/session/:sessionId/exercise/:exerciseId/replace', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = replaceExerciseSchema.parse(req.body);
+    const sessionId = String(req.params.sessionId);
+    const exerciseId = String(req.params.exerciseId);
+
+    const session = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: { exercises: true },
+    });
+
+    if (!session || session.userId !== req.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const exercise = session.exercises.find((e) => e.id === exerciseId);
+    if (!exercise) {
+      res.status(404).json({ error: 'Exercise not found in session' });
+      return;
+    }
+
+    const catalogId = await resolveExerciseCatalogId({
+      userId: req.userId!,
+      exerciseName: data.exerciseName,
+      catalogId: data.catalogId,
+    });
+
+    await prisma.exercise.update({
+      where: { id: exerciseId },
+      data: {
+        catalogId,
+        exerciseName: data.exerciseName,
+        muscleGroup: data.muscleGroup,
+      },
+    });
+
+    const updatedSession = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        exercises: {
+          orderBy: { orderIndex: 'asc' },
+          include: { sets: { orderBy: { setNumber: 'asc' } } },
+        },
+      },
+    });
+
+    res.json({ session: updatedSession });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Replace exercise error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Apply autoregulation prescription to a planned session
 // Updates exercises/sets based on prior performance data
 router.post('/session/:id/apply-prescription', requireAuth, async (req: AuthRequest, res: Response) => {

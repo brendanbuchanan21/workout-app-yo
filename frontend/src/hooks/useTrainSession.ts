@@ -453,6 +453,35 @@ export function useTrainSession() {
     }
   };
 
+  const replaceExerciseInSession = async (exerciseId: string, ex: CatalogExercise) => {
+    if (!session) return false;
+    try {
+      const res = await apiPut(`/training/session/${session.id}/exercise/${exerciseId}/replace`, {
+        catalogId: ex.id,
+        exerciseName: ex.name,
+        muscleGroup: ex.primaryMuscle,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSession(data.session);
+        const replacedIndex = data.session.exercises.findIndex((exercise: any) => exercise.id === exerciseId);
+        if (replacedIndex >= 0) setCurrentExercise(replacedIndex);
+        setActiveSetIdx(null);
+        setExerciseSearch('');
+        setSelectedMuscle(null);
+        return true;
+      } else {
+        const err = await res.json();
+        Alert.alert('Swap failed', err.error || 'Could not replace this exercise.');
+        return false;
+      }
+    } catch (err) {
+      console.error('Replace exercise error:', err);
+      Alert.alert('Swap failed', 'Could not replace this exercise.');
+      return false;
+    }
+  };
+
   const startDay = async (option: DayOption) => {
     if (!today) return;
     setChosenDay(option);
@@ -622,6 +651,7 @@ export function useTrainSession() {
     removeSetFromExercise,
     removeExerciseFromSession,
     addExerciseToSession,
+    replaceExerciseInSession,
     startDay,
     goBackToDayPicker,
     beginWorkout,

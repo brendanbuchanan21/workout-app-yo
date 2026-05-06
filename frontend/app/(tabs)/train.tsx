@@ -59,6 +59,7 @@ export default function Train() {
     removeSetFromExercise,
     removeExerciseFromSession,
     addExerciseToSession,
+    replaceExerciseInSession,
     startDay,
     goBackToDayPicker,
     beginWorkout,
@@ -244,6 +245,7 @@ export default function Train() {
         onRemoveSetFromExercise={removeSetFromExercise}
         onRemoveExerciseFromSession={removeExerciseFromSession}
         onAddExerciseToSession={addExerciseToSession}
+        onReplaceExerciseInSession={replaceExerciseInSession}
         onFinishWorkout={finishWorkout}
       />
     );

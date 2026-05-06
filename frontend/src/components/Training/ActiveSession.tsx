@@ -8,6 +8,7 @@ import { MUSCLE_LABELS } from '../../constants/training';
 import { CatalogExercise, TodayContext } from '../../types/training';
 import { kgToLbs } from '../../utils/setLogging';
 import { CardGradientSurface } from '../shared/CardGradientSurface';
+import EquipmentIcon from '../EquipmentIcon';
 import ExerciseSearchPanel from './ExerciseSearchPanel';
 import SetRow from './SetRow';
 
@@ -270,7 +271,11 @@ export default function ActiveSession({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.addMoreBtn}
-              onPress={() => onSetShowAddExercise(!showAddExercise)}
+              onPress={() => {
+                onSetExerciseSearch('');
+                onSetSelectedMuscle(null);
+                onSetShowAddExercise(true);
+              }}
             >
               <Text style={styles.addMoreBtnText}>Add Another Exercise</Text>
             </TouchableOpacity>
@@ -278,7 +283,23 @@ export default function ActiveSession({
         ) : (
           <>
             <View style={styles.upcomingSection}>
-              <Text style={styles.upcomingTitle}>Upcoming Exercises</Text>
+              <View style={styles.upcomingHeader}>
+                <Text style={styles.upcomingTitle}>Upcoming Exercises</Text>
+                {upcomingExercises.length > 1 && (
+                  <TouchableOpacity
+                    style={styles.changeOrderButton}
+                    onPress={() => router.push({
+                      pathname: '/change-workout-order',
+                      params: {
+                        sessionId: session.id,
+                        currentExerciseId: exercise.id,
+                      },
+                    })}
+                  >
+                    <Text style={styles.changeOrderText}>Change Order</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               {upcomingExercises.map(({ exercise: upcomingExercise, index }: any) => {
                 const upcomingCompletedSets = upcomingExercise.sets.filter((set: any) => set.completed).length;
                 return (
@@ -319,7 +340,11 @@ export default function ActiveSession({
               })}
               <TouchableOpacity
                 style={styles.addExerciseBtn}
-                onPress={() => onSetShowAddExercise(!showAddExercise)}
+                onPress={() => {
+                  onSetExerciseSearch('');
+                  onSetSelectedMuscle(null);
+                  onSetShowAddExercise(true);
+                }}
               >
                 <Text style={styles.addExerciseBtnText}>+ Add Exercise</Text>
               </TouchableOpacity>
@@ -344,17 +369,36 @@ export default function ActiveSession({
         )}
 
         {showAddExercise && (
-          <ExerciseSearchPanel
-            catalog={catalog}
-            exerciseSearch={exerciseSearch}
-            setExerciseSearch={onSetExerciseSearch}
-            selectedMuscle={selectedMuscle}
-            setSelectedMuscle={onSetSelectedMuscle}
-            existingIds={exercises.map((e: any) => e.catalogId)}
-            onAddExercise={(ex) => onAddExerciseToSession(ex, { makeCurrent: true })}
-            title="Add Exercise"
-            addLabel="Add"
-          />
+          <Modal visible transparent animationType="slide" onRequestClose={() => onSetShowAddExercise(false)}>
+            <View style={styles.addBackdrop}>
+              <TouchableOpacity style={styles.addScrim} activeOpacity={1} onPress={() => onSetShowAddExercise(false)} />
+              <View style={styles.addSheet}>
+                <View style={styles.addHandle} />
+                <View style={styles.addHeader}>
+                  <View>
+                    <Text style={styles.addTitle}>Add exercise</Text>
+                    <Text style={styles.addSubtitle}>Adds to the end of this workout</Text>
+                  </View>
+                  <TouchableOpacity style={styles.addCloseButton} onPress={() => onSetShowAddExercise(false)}>
+                    <Text style={styles.addCloseText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.addPanelScroll} showsVerticalScrollIndicator={false}>
+                  <ExerciseSearchPanel
+                    catalog={catalog}
+                    exerciseSearch={exerciseSearch}
+                    setExerciseSearch={onSetExerciseSearch}
+                    selectedMuscle={selectedMuscle}
+                    setSelectedMuscle={onSetSelectedMuscle}
+                    existingIds={exercises.map((e: any) => e.catalogId)}
+                    onAddExercise={(ex) => onAddExerciseToSession(ex, { makeCurrent: false })}
+                    title=""
+                    addLabel="Add"
+                  />
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
         )}
         <ExerciseSwapSheet
           visible={!!swapTarget}
@@ -404,9 +448,9 @@ function ExerciseSwapSheet({
           <View style={styles.swapHandle} />
           <View style={styles.swapHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.swapEyebrow}>Replace Exercise</Text>
+              <Text style={styles.swapEyebrow}>Swap exercise</Text>
               <Text style={styles.swapTitle} numberOfLines={1}>{targetExercise?.exerciseName}</Text>
-              <Text style={styles.swapSubtitle}>{muscleLabel} · keep current set targets</Text>
+              <Text style={styles.swapSubtitle}>{muscleLabel} · current set targets will stay</Text>
             </View>
             <TouchableOpacity style={styles.swapCloseButton} onPress={onClose}>
               <Text style={styles.swapCloseText}>X</Text>
@@ -441,7 +485,7 @@ function ExerciseSwapSheet({
                 />
                 {options.sameMuscle.length > 0 && (
                   <SwapOptionSection
-                    title={`More ${muscleLabel}`}
+                    title={`More for ${muscleLabel.toLowerCase()}`}
                     exercises={options.sameMuscle}
                     onReplace={onReplace}
                   />
@@ -476,13 +520,16 @@ function SwapOptionSection({
           activeOpacity={0.82}
           onPress={() => onReplace(exercise)}
         >
+          <View style={styles.swapOptionIcon}>
+            <EquipmentIcon equipment={exercise.equipment} size={20} color={COLORS.text_secondary} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.swapOptionName}>{exercise.name}</Text>
             <Text style={styles.swapOptionMeta}>
               {MUSCLE_LABELS[exercise.primaryMuscle] || exercise.primaryMuscle} · {exercise.equipment} · {exercise.movementType}
             </Text>
           </View>
-          <Text style={styles.swapOptionAction}>Replace</Text>
+          <Text style={styles.swapOptionAction}>Use</Text>
         </TouchableOpacity>
       )) : emptyText ? (
         <Text style={styles.swapEmpty}>{emptyText}</Text>
@@ -710,11 +757,28 @@ const styles = StyleSheet.create({
   upcomingSection: {
     marginTop: SPACING.sm,
   },
+  upcomingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+  },
   upcomingTitle: {
     color: COLORS.text_primary,
     fontSize: 22,
     fontWeight: '800',
-    marginBottom: SPACING.md,
+    flex: 1,
+  },
+  changeOrderButton: {
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.sm,
+  },
+  changeOrderText: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   upcomingCard: {
     marginBottom: SPACING.sm,
@@ -825,6 +889,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  addBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  addScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+  },
+  addSheet: {
+    height: '88%',
+    backgroundColor: COLORS.bg_secondary,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xl,
+  },
+  addHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: SPACING.lg,
+  },
+  addHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  addTitle: {
+    color: COLORS.text_primary,
+    fontSize: 23,
+    fontWeight: '700',
+  },
+  addSubtitle: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  addCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.bg_input,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addCloseText: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  addPanelScroll: {
+    marginTop: -SPACING.md,
+  },
   swapBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -860,22 +985,19 @@ const styles = StyleSheet.create({
   },
   swapEyebrow: {
     color: COLORS.accent_light,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '700',
     marginBottom: 3,
   },
   swapTitle: {
     color: COLORS.text_primary,
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontSize: 23,
+    fontWeight: '700',
   },
   swapSubtitle: {
     color: COLORS.text_secondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
     marginTop: 4,
     textTransform: 'capitalize',
   },
@@ -912,10 +1034,8 @@ const styles = StyleSheet.create({
   },
   swapSectionTitle: {
     color: COLORS.text_secondary,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontWeight: '700',
     marginBottom: SPACING.sm,
   },
   swapOption: {
@@ -929,10 +1049,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg_card,
     marginBottom: SPACING.sm,
   },
+  swapOptionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.bg_input,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   swapOptionName: {
     color: COLORS.text_primary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   swapOptionMeta: {
     color: COLORS.text_tertiary,
@@ -943,9 +1073,8 @@ const styles = StyleSheet.create({
   },
   swapOptionAction: {
     color: COLORS.accent_light,
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontWeight: '700',
   },
   swapEmpty: {
     color: COLORS.text_tertiary,

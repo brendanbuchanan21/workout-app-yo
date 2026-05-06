@@ -416,6 +416,67 @@ router.put('/session/:sessionId/exercise/:exerciseId/replace', requireAuth, asyn
   }
 });
 
+const reorderSessionExercisesSchema = z.object({
+  exerciseIds: z.array(z.string().min(1)).min(1),
+});
+
+router.put('/session/:sessionId/exercises/reorder', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = reorderSessionExercisesSchema.parse(req.body);
+    const sessionId = String(req.params.sessionId);
+
+    const session = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: { exercises: true },
+    });
+
+    if (!session || session.userId !== req.userId) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    const existingIds = new Set(session.exercises.map((exercise) => exercise.id));
+    const uniqueIds = new Set(data.exerciseIds);
+    const includesEveryExercise =
+      data.exerciseIds.length === session.exercises.length &&
+      uniqueIds.size === session.exercises.length &&
+      data.exerciseIds.every((id) => existingIds.has(id));
+
+    if (!includesEveryExercise) {
+      res.status(400).json({ error: 'Exercise order must include every exercise exactly once' });
+      return;
+    }
+
+    await prisma.$transaction(
+      data.exerciseIds.map((exerciseId, index) =>
+        prisma.exercise.update({
+          where: { id: exerciseId },
+          data: { orderIndex: index },
+        })
+      )
+    );
+
+    const updatedSession = await prisma.workoutSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        exercises: {
+          orderBy: { orderIndex: 'asc' },
+          include: { sets: { orderBy: { setNumber: 'asc' } } },
+        },
+      },
+    });
+
+    res.json({ session: updatedSession });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    console.error('Reorder session exercises error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Apply autoregulation prescription to a planned session
 // Updates exercises/sets based on prior performance data
 router.post('/session/:id/apply-prescription', requireAuth, async (req: AuthRequest, res: Response) => {

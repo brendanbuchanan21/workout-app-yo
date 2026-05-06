@@ -223,7 +223,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg_primary,
   },
   scroll: {
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xl,
     paddingBottom: 110,
   },
   topRow: {
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   phaseBadge: {
     flexDirection: 'row',

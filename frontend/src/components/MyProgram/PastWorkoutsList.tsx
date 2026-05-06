@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { MUSCLE_LABELS } from '../../constants/training';
 import { formatTonnage } from '../../utils/workoutFormatters';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 export interface PastWorkout {
   id: string;
@@ -43,7 +44,7 @@ export default function PastWorkoutsList({ workouts }: PastWorkoutsListProps) {
   return (
     <View>
       {workouts.map((w) => (
-        <View key={w.id} style={styles.card}>
+        <CardGradientSurface key={w.id} gradientId={`pastWorkout-${w.id}`} style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>{w.dayLabel}</Text>
@@ -75,7 +76,7 @@ export default function PastWorkoutsList({ workouts }: PastWorkoutsListProps) {
               <Text style={styles.statLabel}>Tonnage</Text>
             </View>
           </View>
-        </View>
+        </CardGradientSurface>
       ))}
     </View>
   );
@@ -83,12 +84,12 @@ export default function PastWorkoutsList({ workouts }: PastWorkoutsListProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.bg_elevated,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     padding: SPACING.lg,
     marginBottom: SPACING.sm,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -129,7 +130,8 @@ const styles = StyleSheet.create({
     color: COLORS.text_tertiary,
     fontSize: 10,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
+    fontWeight: '700',
     marginTop: 1,
   },
   emptyCard: {

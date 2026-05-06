@@ -7,114 +7,161 @@ interface WeekTimelineProps {
 }
 
 export default function WeekTimeline({ days }: WeekTimelineProps) {
-  // Find the first incomplete day index (the "next up" day)
+  const completedCount = days.filter((day) => day.completed).length;
+  const totalCount = days.length;
   const nextUpIndex = days.findIndex((d) => !d.completed);
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
-    >
-      {days.map((day, i) => {
-        const isCompleted = day.completed;
-        const isNextUp = i === nextUpIndex;
-        const prevCompleted = i > 0 && days[i - 1].completed;
+    <View>
+      <View style={styles.summaryRow}>
+        <View>
+          <Text style={styles.summaryValue}>{completedCount}/{totalCount}</Text>
+          <Text style={styles.summaryLabel}>Sessions complete</Text>
+        </View>
+        <Text style={styles.remainingText}>
+          {Math.max(totalCount - completedCount, 0)} left
+        </Text>
+      </View>
 
-        return (
-          <View key={day.dayLabel} style={styles.nodeWrapper}>
-            {/* Connecting line */}
-            {i > 0 && (
-              <View
-                style={[
-                  styles.line,
-                  isCompleted && prevCompleted && styles.lineCompleted,
-                ]}
-              />
-            )}
+      <View style={styles.progressTrack}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` },
+          ]}
+        />
+      </View>
 
-            {/* Circle */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.sessionList}
+      >
+        {days.map((day, i) => {
+          const isCompleted = day.completed;
+          const isNextUp = i === nextUpIndex;
+          return (
             <View
+              key={day.dayLabel}
               style={[
-                styles.circle,
-                isCompleted && styles.circleCompleted,
-                isNextUp && styles.circleNextUp,
+                styles.sessionPill,
+                isCompleted && styles.sessionPillCompleted,
+                isNextUp && styles.sessionPillNext,
               ]}
             >
-              {isCompleted && <Text style={styles.checkmark}>{'✓'}</Text>}
+              <Text
+                style={[
+                  styles.sessionName,
+                  isCompleted && styles.sessionNameCompleted,
+                  isNextUp && styles.sessionNameNext,
+                ]}
+                numberOfLines={1}
+              >
+                {day.dayLabel}
+              </Text>
+              <Text
+                style={[
+                  styles.sessionStatus,
+                  isCompleted && styles.sessionStatusCompleted,
+                  isNextUp && styles.sessionStatusNext,
+                ]}
+              >
+                {isCompleted ? 'Done' : isNextUp ? 'Next' : 'Open'}
+              </Text>
             </View>
-
-            {/* Label */}
-            <Text
-              style={[styles.label, isCompleted && styles.labelCompleted]}
-              numberOfLines={1}
-            >
-              {day.dayLabel}
-            </Text>
-          </View>
-        );
-      })}
-    </ScrollView>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
-const NODE_SIZE = 28;
-const LINE_WIDTH = 24;
-
 const styles = StyleSheet.create({
-  container: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  nodeWrapper: {
-    alignItems: 'center',
-    width: NODE_SIZE + LINE_WIDTH,
-    position: 'relative',
+  summaryValue: {
+    color: COLORS.text_primary,
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 30,
   },
-  line: {
-    position: 'absolute',
-    top: NODE_SIZE / 2 - 1,
-    right: '50%',
-    width: LINE_WIDTH + NODE_SIZE / 2,
-    height: 2,
-    backgroundColor: COLORS.border_subtle,
-    zIndex: -1,
+  summaryLabel: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
-  lineCompleted: {
-    backgroundColor: COLORS.success,
-  },
-  circle: {
-    width: NODE_SIZE,
-    height: NODE_SIZE,
+  remainingText: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
-    borderWidth: 2,
+    backgroundColor: COLORS.bg_input,
+    overflow: 'hidden',
+  },
+  progressTrack: {
+    height: 7,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bg_input,
+    overflow: 'hidden',
+    marginBottom: SPACING.md,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.accent_muted,
+  },
+  sessionList: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingBottom: 2,
+  },
+  sessionPill: {
+    minWidth: 86,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.bg_primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.bg_input,
   },
-  circleCompleted: {
-    backgroundColor: COLORS.success,
-    borderColor: COLORS.success,
+  sessionPillCompleted: {
+    borderColor: COLORS.accent_muted,
+    backgroundColor: COLORS.accent_subtle,
   },
-  circleNextUp: {
+  sessionPillNext: {
     borderColor: COLORS.accent_primary,
   },
-  checkmark: {
-    color: COLORS.bg_primary,
-    fontSize: 14,
+  sessionName: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
     fontWeight: '700',
   },
-  label: {
-    color: COLORS.text_tertiary,
-    fontSize: 11,
-    marginTop: SPACING.xs,
-    maxWidth: NODE_SIZE + LINE_WIDTH,
-    textAlign: 'center',
+  sessionNameCompleted: {
+    color: COLORS.text_primary,
   },
-  labelCompleted: {
-    color: COLORS.text_secondary,
+  sessionNameNext: {
+    color: COLORS.accent_light,
+  },
+  sessionStatus: {
+    color: COLORS.text_tertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  sessionStatusCompleted: {
+    color: COLORS.accent_light,
+  },
+  sessionStatusNext: {
+    color: COLORS.accent_light,
   },
 });

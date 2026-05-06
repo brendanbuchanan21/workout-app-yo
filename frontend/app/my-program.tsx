@@ -13,6 +13,7 @@ import { SPLIT_LABELS } from '../src/constants/training';
 import WeekTimeline from '../src/components/MyProgram/WeekTimeline';
 import WeeklyVolumeBreakdown from '../src/components/MyProgram/WeeklyVolumeBreakdown';
 import PastWorkoutsList, { PastWorkout } from '../src/components/MyProgram/PastWorkoutsList';
+import { CardGradientSurface } from '../src/components/shared/CardGradientSurface';
 
 interface ProgramDay {
   dayLabel: string;
@@ -134,7 +135,7 @@ export default function MyProgram() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.overviewCard}>
+        <CardGradientSurface gradientId="myProgramOverview" style={styles.overviewCard}>
           <View style={styles.overviewRow}>
             <View style={styles.overviewItem}>
               <Text style={styles.overviewValue}>{splitLabel}</Text>
@@ -157,24 +158,21 @@ export default function MyProgram() {
           </View>
 
           <View style={styles.overviewDivider} />
-          <TouchableOpacity
-            onPress={() => router.push('/weekly-plan')}
-            style={styles.weeklyPlanButton}
-          >
+          <TouchableOpacity onPress={() => router.push('/weekly-plan')} style={styles.weeklyPlanButton}>
             <Text style={styles.weeklyPlanText}>View Weekly Plan</Text>
             <Ionicons name="chevron-forward" size={18} color={COLORS.accent_primary} />
           </TouchableOpacity>
-        </View>
+        </CardGradientSurface>
 
         <Text style={styles.sectionTitle}>Week {currentWeek} Progress</Text>
-        <View style={styles.timelineCard}>
+        <CardGradientSurface gradientId="myProgramWeekTimeline" style={styles.timelineCard}>
           <WeekTimeline
             days={days.map((d) => ({
               dayLabel: d.dayLabel,
               completed: d.completedThisWeek,
             }))}
           />
-        </View>
+        </CardGradientSurface>
 
         {weeklyVolume && (
           <WeeklyVolumeBreakdown
@@ -251,12 +249,17 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   overviewCard: {
-    backgroundColor: COLORS.bg_secondary,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 5,
   },
   overviewRow: {
     flexDirection: 'row',
@@ -276,7 +279,8 @@ const styles = StyleSheet.create({
     color: COLORS.text_tertiary,
     fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
+    fontWeight: '700',
   },
   overviewDivider: {
     height: 1,
@@ -297,18 +301,20 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: COLORS.text_secondary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
     marginBottom: SPACING.md,
   },
   timelineCard: {
-    backgroundColor: COLORS.bg_secondary,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.md,
     marginBottom: SPACING.xl,
+    overflow: 'hidden',
   },
   emptyText: {
     color: COLORS.text_tertiary,

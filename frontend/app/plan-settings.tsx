@@ -10,6 +10,7 @@ import { COLORS, SPACING, RADIUS } from '../src/constants/theme';
 import { SPLIT_LABELS } from '../src/constants/training';
 import SplitBuilder from '../src/components/shared/SplitBuilder';
 import VolumeConfigurator from '../src/components/shared/VolumeConfigurator';
+import { CardGradientSurface } from '../src/components/shared/CardGradientSurface';
 import RirProgression from '../src/components/PlanSettings/RirProgression';
 import DangerZone from '../src/components/PlanSettings/DangerZone';
 import usePlanSettings from '../src/hooks/usePlanSettings';
@@ -64,6 +65,12 @@ export default function PlanSettings() {
   const volumeLocked =
     block.currentWeek > 1 ||
     (block.workoutSessions || []).some((session) => ['in_progress', 'completed'].includes(session.status));
+  const isFinalWeek = block.currentWeek >= lengthWeeks;
+  const setupLabel = block.setupMethod === 'template'
+    ? 'Template'
+    : block.setupMethod === 'plan'
+      ? 'Planned'
+      : 'Build As You Go';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,58 +85,97 @@ export default function PlanSettings() {
         </View>
 
         {/* Overview Card */}
-        <View style={styles.overviewCard}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={styles.overviewTitle}>Block #{block.blockNumber}</Text>
-            {block.setupMethod && (
-              <View style={styles.methodBadge}>
-                <Text style={styles.methodBadgeText}>
-                  {block.setupMethod === 'template' ? 'Template' :
-                   block.setupMethod === 'plan' ? 'Planned' : 'Build As You Go'}
-                </Text>
+        <CardGradientSurface gradientId="planSettingsOverview" style={styles.overviewCard}>
+          <View style={styles.overviewTopRow}>
+            <View>
+              <Text style={styles.overviewEyebrow}>Active block</Text>
+              <Text style={styles.overviewTitle}>Block #{block.blockNumber}</Text>
+            </View>
+            <View style={[styles.methodBadge, isFinalWeek && styles.finalWeekBadge]}>
+              <Text style={[styles.methodBadgeText, isFinalWeek && styles.finalWeekBadgeText]}>
+                {isFinalWeek ? 'Final week' : setupLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.progressHeader}>
+            <View style={styles.weekPill}>
+              <Text style={styles.weekPillText}>Week {block.currentWeek} of {lengthWeeks}</Text>
+              <View style={styles.weekDots}>
+                {Array.from({ length: lengthWeeks }, (_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.weekDot,
+                      i < block.currentWeek && styles.weekDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+            <Text style={styles.progressDate}>Started {startDateStr}</Text>
+          </View>
+
+          <View style={styles.overviewMetaRow}>
+            <View style={styles.overviewMetaItem}>
+              <Text style={styles.overviewMetaValue}>{daysPerWeek}</Text>
+              <Text style={styles.overviewMetaLabel}>days/week</Text>
+            </View>
+            <View style={styles.overviewDivider} />
+            <View style={styles.overviewMetaItem}>
+              <Text style={styles.overviewMetaValue}>{SPLIT_LABELS[splitType]}</Text>
+              <Text style={styles.overviewMetaLabel}>split</Text>
+            </View>
+          </View>
+        </CardGradientSurface>
+
+        {/* Training Split */}
+        <CardGradientSurface gradientId="planSettingsSplit" style={styles.settingsPanel}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Training Split</Text>
+              <Text style={styles.sectionSubtitle}>
+                {splitLocked ? 'Locked for this block. Change it after ending the block.' : 'Choose how training days are organized.'}
+              </Text>
+            </View>
+            {splitLocked && (
+              <View style={styles.lockBadge}>
+                <Ionicons name="lock-closed" size={13} color={COLORS.accent_light} />
+                <Text style={styles.lockBadgeText}>Locked</Text>
               </View>
             )}
           </View>
-          <Text style={styles.overviewSub}>
-            Week {block.currentWeek} of {lengthWeeks} · Started {startDateStr}
-          </Text>
-        </View>
 
-        {/* Training Split */}
-        <Text style={[styles.sectionTitle, splitLocked && styles.sectionTitleWithHint]}>
-          Training Split
-        </Text>
-        {splitLocked && (
-          <View style={styles.splitLockHintRow}>
-            <Ionicons
-              name="lock-closed"
-              size={15}
-              color={COLORS.accent_muted}
-              style={styles.splitLockHintIcon}
-            />
-            <Text style={styles.splitLockHint}>
-              Split is locked after your first completed session. End this block to choose a different program style.
-            </Text>
-          </View>
-        )}
-        <View style={styles.optionRow}>
-          {(['full_body', 'upper_lower', 'push_pull_legs', 'custom'] as const).map((s) => (
-            <TouchableOpacity
-              key={s}
-              style={[
-                styles.splitOption,
-                splitType === s && styles.splitOptionSelected,
-                splitLocked && splitType !== s && styles.splitOptionDisabled,
-              ]}
-              onPress={() => handleSplitChange(s)}
-              disabled={splitLocked}
-            >
-              <Text style={[styles.splitOptionText, splitType === s && styles.splitOptionTextSelected]}>
-                {SPLIT_LABELS[s]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          {splitLocked ? (
+            <View style={styles.selectedSplitCard}>
+              <View style={styles.selectedSplitIcon}>
+                <Ionicons name="barbell" size={18} color={COLORS.accent_light} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.selectedSplitLabel}>{SPLIT_LABELS[splitType]}</Text>
+                <Text style={styles.selectedSplitMeta}>{daysPerWeek} training days per week</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={22} color={COLORS.accent_primary} />
+            </View>
+          ) : (
+            <View style={styles.optionRow}>
+              {(['full_body', 'upper_lower', 'push_pull_legs', 'custom'] as const).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.splitOption,
+                    splitType === s && styles.splitOptionSelected,
+                  ]}
+                  onPress={() => handleSplitChange(s)}
+                >
+                  <Text style={[styles.splitOptionText, splitType === s && styles.splitOptionTextSelected]}>
+                    {SPLIT_LABELS[s]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </CardGradientSurface>
 
         {splitType === 'custom' && (
           <SplitBuilder
@@ -141,48 +187,56 @@ export default function PlanSettings() {
         )}
 
         {/* Schedule */}
-        <Text style={styles.sectionTitle}>Schedule</Text>
-        <Text style={styles.fieldLabel}>Days per week</Text>
-        <View style={styles.buttonRow}>
-          {[3, 4, 5, 6].map((d) => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.numButton, daysPerWeek === d && styles.numButtonSelected]}
-              onPress={() => handleDaysChange(d)}
-            >
-              <Text style={[styles.numButtonText, daysPerWeek === d && styles.numButtonTextSelected]}>{d}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {splitType === 'push_pull_legs' && (daysPerWeek === 4 || daysPerWeek === 5) && (
-          <View style={styles.infoNote}>
-            <Text style={styles.infoNoteText}>
-              Push / Pull / Legs uses a fixed rotation. At 4 or 5 days per week, some weeks won&apos;t be evenly distributed, but it balances out over time.
-            </Text>
+        <CardGradientSurface gradientId="planSettingsSchedule" style={styles.settingsPanel}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderCopy}>
+              <Text style={styles.sectionTitle}>Schedule</Text>
+              <Text style={styles.sectionSubtitle}>Set weekly frequency and block length.</Text>
+            </View>
           </View>
-        )}
+          <Text style={styles.fieldLabel}>Days per week</Text>
+          <View style={styles.buttonRow}>
+            {[3, 4, 5, 6].map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.numButton, daysPerWeek === d && styles.numButtonSelected]}
+                onPress={() => handleDaysChange(d)}
+              >
+                <Text style={[styles.numButtonText, daysPerWeek === d && styles.numButtonTextSelected]}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {splitType === 'push_pull_legs' && (daysPerWeek === 4 || daysPerWeek === 5) && (
+            <View style={styles.infoNote}>
+              <Ionicons name="sync" size={14} color={COLORS.accent_light} style={styles.infoNoteIcon} />
+              <Text style={styles.infoNoteText}>
+                Push / Pull / Legs rotates continuously, so uneven weeks balance out over time.
+              </Text>
+            </View>
+          )}
 
-        <Text style={[styles.fieldLabel, { marginTop: SPACING.lg }]}>Length (weeks)</Text>
-        <View style={styles.buttonRow}>
-          {[3, 4, 5, 6, 7, 8].map((w) => (
-            <TouchableOpacity
-              key={w}
-              style={[
-                styles.numButton,
-                lengthWeeks === w && styles.numButtonSelected,
-                w < block.currentWeek && styles.numButtonDisabled,
-              ]}
-              onPress={() => w >= block.currentWeek && setLengthWeeks(w)}
-              disabled={w < block.currentWeek}
-            >
-              <Text style={[
-                styles.numButtonText,
-                lengthWeeks === w && styles.numButtonTextSelected,
-                w < block.currentWeek && styles.numButtonTextDisabled,
-              ]}>{w}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          <Text style={[styles.fieldLabel, { marginTop: SPACING.lg }]}>Length (weeks)</Text>
+          <View style={styles.buttonRow}>
+            {[3, 4, 5, 6, 7, 8].map((w) => (
+              <TouchableOpacity
+                key={w}
+                style={[
+                  styles.numButton,
+                  lengthWeeks === w && styles.numButtonSelected,
+                  w < block.currentWeek && styles.numButtonDisabled,
+                ]}
+                onPress={() => w >= block.currentWeek && setLengthWeeks(w)}
+                disabled={w < block.currentWeek}
+              >
+                <Text style={[
+                  styles.numButtonText,
+                  lengthWeeks === w && styles.numButtonTextSelected,
+                  w < block.currentWeek && styles.numButtonTextDisabled,
+                ]}>{w}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </CardGradientSurface>
 
         <RirProgression
           startingRir={startingRir}
@@ -258,78 +312,183 @@ const styles = StyleSheet.create({
     color: COLORS.text_primary,
   },
   overviewCard: {
-    backgroundColor: COLORS.bg_elevated,
+    backgroundColor: COLORS.bg_card,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
-    marginBottom: SPACING.xxl,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  overviewTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  overviewEyebrow: {
+    color: COLORS.accent_light,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   overviewTitle: {
-    fontSize: 17,
+    fontSize: 24,
     fontWeight: '700',
     color: COLORS.text_primary,
   },
-  overviewSub: {
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    gap: SPACING.md,
+  },
+  progressDate: {
     fontSize: 13,
+    color: COLORS.text_secondary,
+  },
+  weekPill: {
+    flexShrink: 1,
+  },
+  weekPillText: {
+    color: COLORS.text_primary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: SPACING.xs,
+  },
+  weekDots: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  weekDot: {
+    width: 18,
+    height: 3,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(242, 240, 237, 0.08)',
+  },
+  weekDotActive: {
+    backgroundColor: 'rgba(232, 145, 45, 0.42)',
+  },
+  overviewMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  overviewMetaItem: {
+    flex: 1,
+  },
+  overviewMetaValue: {
+    color: COLORS.text_primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  overviewMetaLabel: {
     color: COLORS.text_tertiary,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  overviewDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.border_subtle,
+    marginHorizontal: SPACING.md,
   },
   methodBadge: {
     backgroundColor: COLORS.accent_subtle,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 5,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.accent_muted,
   },
   methodBadgeText: {
     color: COLORS.accent_light,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  finalWeekBadge: {
+    backgroundColor: COLORS.gold_subtle,
+    borderColor: COLORS.gold_primary,
+  },
+  finalWeekBadgeText: {
+    color: COLORS.gold_light,
+  },
+  settingsPanel: {
+    backgroundColor: COLORS.bg_secondary,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    padding: SPACING.lg,
+    marginTop: SPACING.md,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.text_primary,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.xl,
+    marginBottom: 4,
   },
-  sectionTitleWithHint: {
-    marginBottom: SPACING.xs,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sectionSubtitle: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    lineHeight: 17,
   },
   fieldLabel: {
     fontSize: 13,
-    color: COLORS.text_tertiary,
+    color: COLORS.text_secondary,
+    fontWeight: '600',
     marginBottom: SPACING.sm,
   },
   infoNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
     marginTop: SPACING.md,
-    backgroundColor: COLORS.bg_elevated,
+    backgroundColor: COLORS.accent_glow,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.accent_subtle,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
+  infoNoteIcon: {
+    marginTop: 2,
+  },
   infoNoteText: {
+    flex: 1,
     color: COLORS.text_secondary,
     fontSize: 12,
     lineHeight: 18,
   },
-  splitLockHintRow: {
+  lockBadge: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-    gap: SPACING.sm,
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 0,
+    backgroundColor: COLORS.accent_subtle,
+    borderWidth: 1,
+    borderColor: COLORS.accent_muted,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
   },
-  splitLockHintIcon: {
-    marginTop: 1,
-  },
-  splitLockHint: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-    color: COLORS.text_tertiary,
-    fontWeight: '400',
+  lockBadgeText: {
+    color: COLORS.accent_light,
+    fontSize: 11,
+    fontWeight: '700',
   },
   emptyText: {
     color: COLORS.text_secondary,
@@ -339,7 +498,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
-    marginTop: 10,
   },
   splitOption: {
     paddingVertical: SPACING.md,
@@ -350,11 +508,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
   },
   splitOptionSelected: {
-    backgroundColor: COLORS.accent_subtle,
+    backgroundColor: COLORS.accent_fill,
     borderColor: COLORS.accent_muted,
-  },
-  splitOptionDisabled: {
-    opacity: 0.45,
   },
   splitOptionText: {
     color: COLORS.text_secondary,
@@ -363,6 +518,36 @@ const styles = StyleSheet.create({
   },
   splitOptionTextSelected: {
     color: COLORS.accent_light,
+  },
+  selectedSplitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: COLORS.bg_elevated,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent_muted,
+    padding: SPACING.md,
+  },
+  selectedSplitIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accent_subtle,
+    borderWidth: 1,
+    borderColor: COLORS.accent_muted,
+  },
+  selectedSplitLabel: {
+    color: COLORS.text_primary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  selectedSplitMeta: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    marginTop: 2,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -378,7 +563,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
   },
   numButtonSelected: {
-    backgroundColor: COLORS.accent_subtle,
+    backgroundColor: COLORS.accent_fill,
     borderColor: COLORS.accent_muted,
   },
   numButtonDisabled: {

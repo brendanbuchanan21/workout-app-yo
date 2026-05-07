@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import { CardGradientSurface } from '../shared/CardGradientSurface';
 
 interface RirProgressionProps {
   startingRir: number;
@@ -27,11 +28,19 @@ const RirProgression = ({
   const startingRirLocked = currentWeek > 1;
 
   return (
-    <View>
-      <Text style={styles.sectionTitle}>RIR Progression</Text>
-      <Text style={{ color: COLORS.text_tertiary, fontSize: 12, marginBottom: SPACING.md }}>
-        Controls how close to failure you train each week
-      </Text>
+    <CardGradientSurface gradientId="planSettingsRir" style={styles.panel}>
+      <View style={styles.sectionHeaderRow}>
+        <View style={styles.sectionHeaderCopy}>
+          <Text style={styles.sectionTitle}>RIR Progression</Text>
+          <Text style={styles.sectionSubtitle}>
+            Controls how close to failure you train each week.
+          </Text>
+        </View>
+        <View style={styles.intensityBadge}>
+          <Ionicons name="flame" size={13} color={COLORS.accent_light} />
+          <Text style={styles.intensityBadgeText}>Intensity</Text>
+        </View>
+      </View>
 
       {startingRirLocked && (
         <View style={styles.lockHintRow}>
@@ -146,23 +155,65 @@ const RirProgression = ({
           })}
         </View>
       </View>
-    </View>
+    </CardGradientSurface>
   );
 };
 
 export default RirProgression;
 
 const styles = StyleSheet.create({
+  panel: {
+    backgroundColor: COLORS.bg_secondary,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border_subtle,
+    padding: SPACING.lg,
+    marginTop: SPACING.md,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.text_primary,
-    marginBottom: SPACING.md,
-    marginTop: SPACING.xl,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    color: COLORS.text_tertiary,
+    fontSize: 12,
+    lineHeight: 17,
+    maxWidth: 260,
+  },
+  intensityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 0,
+    backgroundColor: COLORS.accent_subtle,
+    borderWidth: 1,
+    borderColor: COLORS.accent_muted,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+  },
+  intensityBadgeText: {
+    color: COLORS.accent_light,
+    fontSize: 11,
+    fontWeight: '700',
   },
   fieldLabel: {
     fontSize: 13,
-    color: COLORS.text_tertiary,
+    color: COLORS.text_secondary,
+    fontWeight: '600',
     marginBottom: SPACING.sm,
   },
   fieldHint: {
@@ -175,6 +226,11 @@ const styles = StyleSheet.create({
   lockHintRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    backgroundColor: COLORS.accent_glow,
+    borderWidth: 1,
+    borderColor: COLORS.accent_subtle,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
     gap: SPACING.sm,
   },
@@ -202,7 +258,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border_subtle,
   },
   numButtonSelected: {
-    backgroundColor: COLORS.accent_subtle,
+    backgroundColor: COLORS.accent_fill,
     borderColor: COLORS.accent_muted,
   },
   numButtonDisabled: {
@@ -248,11 +304,11 @@ const styles = StyleSheet.create({
   },
   rirPreview: {
     marginTop: SPACING.lg,
-    backgroundColor: COLORS.bg_elevated,
+    backgroundColor: COLORS.bg_card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border_subtle,
+    borderColor: COLORS.border,
   },
   rirPreviewTitle: {
     color: COLORS.text_tertiary,
@@ -267,6 +323,7 @@ const styles = StyleSheet.create({
   },
   rirPreviewWeek: {
     alignItems: 'center',
+    minWidth: 26,
   },
   rirPreviewWeekLabel: {
     color: COLORS.text_tertiary,

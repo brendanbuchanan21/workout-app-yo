@@ -1,10 +1,10 @@
 export const COLORS = {
   // Backgrounds
-  bg_primary: '#0C0C0E',
-  bg_secondary: '#141416',
-  bg_elevated: '#1C1C20',
-  bg_card: '#1E1E22',
-  bg_input: '#252529',
+  bg_primary: '#070708',
+  bg_secondary: '#0B0B0D',
+  bg_elevated: '#101014',
+  bg_card: '#121216',
+  bg_input: '#17171B',
 
   // Amber/Orange accent spectrum
   accent_primary: '#E8912D',
@@ -35,8 +35,8 @@ export const COLORS = {
   danger_subtle: 'rgba(248, 113, 113, 0.12)',
 
   // Borders
-  border: '#2A2A2E',
-  border_subtle: '#1F1F23',
+  border: '#2B2B30',
+  border_subtle: '#1A1A1E',
 } as const;
 
 export { FONT } from './fontFaces';

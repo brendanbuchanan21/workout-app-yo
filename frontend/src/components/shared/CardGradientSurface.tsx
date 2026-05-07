@@ -38,14 +38,14 @@ export function CardGradientSurface({ gradientId, children, style }: CardGradien
         >
           <Defs>
             <LinearGradient id={`${id}Bg`} x1="0" y1="0" x2={size.width} y2={size.height} gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor="#18181D" stopOpacity="1" />
-              <Stop offset="0.28" stopColor="#16161A" stopOpacity="1" />
-              <Stop offset="0.68" stopColor="#141416" stopOpacity="1" />
-              <Stop offset="1" stopColor="#0E0E10" stopOpacity="1" />
+              <Stop offset="0" stopColor="#151519" stopOpacity="1" />
+              <Stop offset="0.34" stopColor="#101014" stopOpacity="1" />
+              <Stop offset="0.72" stopColor="#0B0B0D" stopOpacity="1" />
+              <Stop offset="1" stopColor="#070708" stopOpacity="1" />
             </LinearGradient>
             <LinearGradient id={`${id}Sheen`} x1="0" y1="0" x2="0" y2={size.height * 0.52} gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={COLORS.text_primary} stopOpacity="0.009" />
-              <Stop offset="0.38" stopColor={COLORS.text_primary} stopOpacity="0.003" />
+              <Stop offset="0" stopColor="#F7F3EC" stopOpacity="0.022" />
+              <Stop offset="0.42" stopColor="#C8C4BC" stopOpacity="0.008" />
               <Stop offset="1" stopColor={COLORS.text_primary} stopOpacity="0" />
             </LinearGradient>
           </Defs>

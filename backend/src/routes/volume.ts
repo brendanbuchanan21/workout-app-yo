@@ -30,6 +30,20 @@ router.put('/volume-targets', requireAuth, async (req: AuthRequest, res: Respons
       return;
     }
 
+    const startedSessions = await prisma.workoutSession.count({
+      where: {
+        trainingBlockId: block.id,
+        status: { in: ['in_progress', 'completed'] },
+      },
+    });
+
+    if (block.currentWeek > 1 || startedSessions > 0) {
+      res.status(400).json({
+        error: 'Starting volume is locked after the block starts. Make session-level adjustments from the active workout.',
+      });
+      return;
+    }
+
     // Validate against effective guardrails
     const effectiveGuardrails = getEffectiveGuardrails(block.customGuardrails as any);
     const errors: string[] = [];
@@ -125,6 +139,20 @@ router.put('/volume-guardrails', requireAuth, async (req: AuthRequest, res: Resp
 
     if (!block) {
       res.status(404).json({ error: 'No active training block found' });
+      return;
+    }
+
+    const startedSessions = await prisma.workoutSession.count({
+      where: {
+        trainingBlockId: block.id,
+        status: { in: ['in_progress', 'completed'] },
+      },
+    });
+
+    if (block.currentWeek > 1 || startedSessions > 0) {
+      res.status(400).json({
+        error: 'Volume ranges are locked after the block starts. Make session-level adjustments from the active workout.',
+      });
       return;
     }
 

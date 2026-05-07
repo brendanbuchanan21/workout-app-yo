@@ -46,17 +46,40 @@ export default function MyProgram() {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [weeklyVolume, setWeeklyVolume] = useState<WeeklyVolumeData | null>(null);
   const [pastWorkouts, setPastWorkouts] = useState<PastWorkout[]>([]);
+  const [pastSessionsNextCursor, setPastSessionsNextCursor] = useState<string | null>(null);
+  const [pastSessionsLoadingMore, setPastSessionsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const loadMorePastSessions = useCallback(async () => {
+    if (!pastSessionsNextCursor || pastSessionsLoadingMore) return;
+    setPastSessionsLoadingMore(true);
+    try {
+      const qs = new URLSearchParams({
+        limit: '15',
+        cursor: pastSessionsNextCursor,
+      });
+      const res = await apiGet(`/training/block/sessions?${qs.toString()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setPastWorkouts((prev) => [...prev, ...(data.sessions ?? [])]);
+      setPastSessionsNextCursor(data.nextCursor ?? null);
+    } catch (err) {
+      console.error('Failed to load more past sessions:', err);
+    } finally {
+      setPastSessionsLoadingMore(false);
+    }
+  }, [pastSessionsNextCursor, pastSessionsLoadingMore]);
 
   useFocusEffect(
     useCallback(() => {
       const load = async () => {
+        setPastSessionsLoadingMore(false);
         try {
           const [blockRes, daysRes, volumeRes, sessionsRes] = await Promise.all([
             apiGet('/training/block/active'),
             apiGet('/training/program/days'),
             apiGet('/training/block-weekly-volume'),
-            apiGet('/training/block/sessions'),
+            apiGet('/training/block/sessions?limit=15'),
           ]);
           if (blockRes.ok) {
             const data = await blockRes.json();
@@ -73,7 +96,8 @@ export default function MyProgram() {
           }
           if (sessionsRes.ok) {
             const data = await sessionsRes.json();
-            setPastWorkouts(data.sessions);
+            setPastWorkouts(data.sessions ?? []);
+            setPastSessionsNextCursor(data.nextCursor ?? null);
           }
         } catch (err) {
           console.error('Failed to load program:', err);
@@ -184,7 +208,12 @@ export default function MyProgram() {
         )}
 
         <Text style={styles.sectionTitle}>Past Workouts</Text>
-        <PastWorkoutsList workouts={pastWorkouts} />
+        <PastWorkoutsList
+          workouts={pastWorkouts}
+          hasMore={!!pastSessionsNextCursor}
+          loadingMore={pastSessionsLoadingMore}
+          onLoadMore={loadMorePastSessions}
+        />
       </ScrollView>
     </SafeAreaView>
   );

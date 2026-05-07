@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { MUSCLE_LABELS } from '../../constants/training';
@@ -19,6 +19,9 @@ export interface PastWorkout {
 
 interface PastWorkoutsListProps {
   workouts: PastWorkout[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 function formatDate(iso: string): string {
@@ -30,7 +33,12 @@ function formatDate(iso: string): string {
   });
 }
 
-export default function PastWorkoutsList({ workouts }: PastWorkoutsListProps) {
+export default function PastWorkoutsList({
+  workouts,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
+}: PastWorkoutsListProps) {
   if (workouts.length === 0) {
     return (
       <View style={styles.emptyCard}>
@@ -78,6 +86,20 @@ export default function PastWorkoutsList({ workouts }: PastWorkoutsListProps) {
           </View>
         </CardGradientSurface>
       ))}
+      {hasMore && onLoadMore && (
+        <TouchableOpacity
+          style={styles.loadMore}
+          onPress={onLoadMore}
+          disabled={loadingMore}
+          activeOpacity={0.85}
+        >
+          {loadingMore ? (
+            <ActivityIndicator size="small" color={COLORS.accent_primary} />
+          ) : (
+            <Text style={styles.loadMoreText}>Load more</Text>
+          )}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -145,5 +167,16 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.text_tertiary,
     fontSize: 13,
+  },
+  loadMore: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  loadMoreText: {
+    color: COLORS.text_secondary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

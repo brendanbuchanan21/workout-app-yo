@@ -61,6 +61,9 @@ export default function PlanSettings() {
     month: 'short', day: 'numeric', year: 'numeric',
   });
   const splitLocked = (block.workoutSessions || []).some((session) => session.status === 'completed');
+  const volumeLocked =
+    block.currentWeek > 1 ||
+    (block.workoutSessions || []).some((session) => ['in_progress', 'completed'].includes(session.status));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -202,7 +205,10 @@ export default function PlanSettings() {
           setExpandedGuardrail={setExpandedGuardrail}
           showInfoModal={showInfoModal}
           setShowInfoModal={setShowInfoModal}
-          subtitle="Sets per muscle group per week"
+          subtitle="Week 1 set targets for each muscle group. Future weeks progress automatically."
+          locked={volumeLocked}
+          currentWeek={block.currentWeek}
+          lengthWeeks={lengthWeeks}
         />
 
         <DangerZone onEndBlock={handleEndBlock} />

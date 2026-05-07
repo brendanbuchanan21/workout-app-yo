@@ -7,8 +7,37 @@ import {
   getProgramDayDefinitionsFromSessions,
   materializeFuturePlannedSessions,
 } from '../services/plannedWorkoutMaterializer';
+import type { Prisma } from '@prisma/client';
 
 const router = Router();
+
+const listBlockSessionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().default(15),
+  cursor: z.string().min(1).optional(),
+});
+
+const sessionCursorPayloadSchema = z.object({
+  d: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  t: z.string(),
+  i: z.string().uuid(),
+});
+
+type SessionCursorPayload = z.infer<typeof sessionCursorPayloadSchema>;
+
+function encodeSessionCursor(row: { date: Date; completedAt: Date; id: string }): string {
+  const payload: SessionCursorPayload = {
+    d: row.date.toISOString().slice(0, 10),
+    t: row.completedAt.toISOString(),
+    i: row.id,
+  };
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+function decodeSessionCursor(raw: string): SessionCursorPayload {
+  const json = Buffer.from(raw, 'base64url').toString('utf8');
+  const parsed: unknown = JSON.parse(json);
+  return sessionCursorPayloadSchema.parse(parsed);
+}
 
 // Starting volume per muscle group by experience level
 export function getStartingVolume(experienceLevel: string): Record<string, number> {
@@ -153,6 +182,33 @@ router.put('/block/active', requireAuth, async (req: AuthRequest, res: Response)
     if (data.lengthWeeks !== undefined && data.lengthWeeks < block.currentWeek) {
       res.status(400).json({ error: `Cannot shorten below current week (${block.currentWeek})` });
       return;
+    }
+
+    if (
+      data.startingRir !== undefined &&
+      data.startingRir !== block.startingRir &&
+      block.currentWeek > 1
+    ) {
+      res.status(400).json({
+        error: 'Starting RIR is locked after week 1. End this block to set a new program anchor.',
+      });
+      return;
+    }
+
+    if (data.volumeTargets !== undefined) {
+      const startedSessions = await prisma.workoutSession.count({
+        where: {
+          trainingBlockId: block.id,
+          status: { in: ['in_progress', 'completed'] },
+        },
+      });
+
+      if (block.currentWeek > 1 || startedSessions > 0) {
+        res.status(400).json({
+          error: 'Starting volume is locked after the block starts. Make session-level adjustments from the active workout.',
+        });
+        return;
+      }
     }
 
     // Validate customDays required when splitType is custom
@@ -339,9 +395,28 @@ router.get('/block/active', requireAuth, async (req: AuthRequest, res: Response)
   }
 });
 
-// Completed sessions in the active training block (newest first)
+// Completed sessions in the active training block (newest first, cursor pagination)
 router.get('/block/sessions', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
+    const parsed = listBlockSessionsQuerySchema.safeParse({
+      limit: req.query.limit,
+      cursor: req.query.cursor,
+    });
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid query', details: parsed.error.errors });
+      return;
+    }
+
+    let cursorPayload: SessionCursorPayload | null = null;
+    if (parsed.data.cursor) {
+      try {
+        cursorPayload = decodeSessionCursor(parsed.data.cursor);
+      } catch {
+        res.status(400).json({ error: 'Invalid cursor' });
+        return;
+      }
+    }
+
     const block = await prisma.trainingBlock.findFirst({
       where: { userId: req.userId!, status: 'active' },
     });
@@ -351,20 +426,64 @@ router.get('/block/sessions', requireAuth, async (req: AuthRequest, res: Respons
       return;
     }
 
+    const limit = parsed.data.limit;
+    const keysetFilter: Prisma.WorkoutSessionWhereInput | undefined = cursorPayload
+      ? (() => {
+          const cd = new Date(cursorPayload.d);
+          const ct = new Date(cursorPayload.t);
+          return {
+            OR: [
+              { date: { lt: cd } },
+              {
+                AND: [{ date: cd }, { completedAt: { lt: ct } }],
+              },
+              {
+                AND: [
+                  { date: cd },
+                  { completedAt: ct },
+                  { id: { lt: cursorPayload.i } },
+                ],
+              },
+            ],
+          };
+        })()
+      : undefined;
+
     const sessions = await prisma.workoutSession.findMany({
       where: {
         trainingBlockId: block.id,
         status: 'completed',
+        completedAt: { not: null },
+        ...(keysetFilter ? keysetFilter : {}),
       },
-      include: {
+      select: {
+        id: true,
+        date: true,
+        completedAt: true,
+        weekNumber: true,
+        dayLabel: true,
         exercises: {
-          include: { sets: true },
+          select: {
+            muscleGroup: true,
+            sets: {
+              select: {
+                completed: true,
+                setType: true,
+                actualReps: true,
+                actualWeightKg: true,
+              },
+            },
+          },
         },
       },
-      orderBy: [{ date: 'desc' }, { completedAt: 'desc' }],
+      orderBy: [{ date: 'desc' }, { completedAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
     });
 
-    const summaries = sessions.map((session) => {
+    const hasMore = sessions.length > limit;
+    const page = hasMore ? sessions.slice(0, limit) : sessions;
+
+    const summaries = page.map((session) => {
       let totalSets = 0;
       let totalTonnageKg = 0;
       const muscleSet = new Set<string>();
@@ -393,7 +512,17 @@ router.get('/block/sessions', requireAuth, async (req: AuthRequest, res: Respons
       };
     });
 
-    res.json({ sessions: summaries });
+    const last = page[page.length - 1];
+    const nextCursor =
+      hasMore && last && last.completedAt
+        ? encodeSessionCursor({
+            date: last.date,
+            completedAt: last.completedAt,
+            id: last.id,
+          })
+        : null;
+
+    res.json({ sessions: summaries, nextCursor });
   } catch (error) {
     console.error('Get block sessions error:', error);
     res.status(500).json({ error: 'Internal server error' });

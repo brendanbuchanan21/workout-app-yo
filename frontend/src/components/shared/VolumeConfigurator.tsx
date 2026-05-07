@@ -14,6 +14,13 @@ interface VolumeConfiguratorProps {
   showInfoModal: boolean;
   setShowInfoModal: (show: boolean) => void;
   subtitle?: string;
+  locked?: boolean;
+  currentWeek?: number;
+  lengthWeeks?: number;
+}
+
+function getSetsForWeek(baseVolume: number, weekNumber: number) {
+  return baseVolume + Math.floor((weekNumber - 1) / 2);
 }
 
 const VolumeConfigurator = ({
@@ -27,6 +34,8 @@ const VolumeConfigurator = ({
   showInfoModal,
   setShowInfoModal,
   subtitle,
+  locked = false,
+  currentWeek = 1,
 }: VolumeConfiguratorProps) => {
   const markDirty = () => {
     if (setGuardrailsDirty) setGuardrailsDirty(true);
@@ -35,7 +44,7 @@ const VolumeConfigurator = ({
   return (
     <View>
       <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>Volume Targets</Text>
+        <Text style={styles.sectionTitle}>Starting Volume</Text>
         <TouchableOpacity onPress={() => setShowInfoModal(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <View style={styles.infoButton}>
             <Text style={styles.infoButtonText}>i</Text>
@@ -45,32 +54,51 @@ const VolumeConfigurator = ({
       {subtitle && (
         <Text style={styles.subtitle}>{subtitle}</Text>
       )}
+      {locked && (
+        <View style={styles.lockedNote}>
+          <Text style={styles.lockedNoteText}>
+            Locked after the block starts. Weekly volume now progresses automatically.
+          </Text>
+        </View>
+      )}
 
       {ALL_MUSCLE_GROUPS.map((muscle) => {
         const guard = guardrails[muscle] || DEFAULT_VOLUME_GUARDRAILS[muscle];
         const value = volumeTargets[muscle] || 0;
+        const currentWeekPlan = getSetsForWeek(value, currentWeek);
         const isExpanded = expandedGuardrail === muscle;
         return (
           <View key={muscle}>
             <View style={styles.volumeRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.volumeLabel}>{MUSCLE_LABELS[muscle]}</Text>
-                <TouchableOpacity onPress={() => setExpandedGuardrail(isExpanded ? null : muscle)}>
+                <Text style={styles.volumeRange}>
+                  Week 1 start: {value} sets
+                </Text>
+                <Text style={styles.volumeRange}>
+                  This week: {currentWeekPlan} sets · Range {guard.floor}-{guard.ceiling}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => !locked && setExpandedGuardrail(isExpanded ? null : muscle)}
+                  disabled={locked}
+                >
                   <Text style={styles.volumeRange}>
-                    Floor {guard.floor}, Ceiling {guard.ceiling} <Text style={styles.editHint}>(edit)</Text>
+                    {locked ? 'Range locked for this block' : <Text style={styles.editHint}>Edit range</Text>}
                   </Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.volumeControls}>
-                <TouchableOpacity
-                  style={styles.volumeBtn}
-                  onPress={() => {
-                    const newVal = Math.max(0, value - 2);
-                    setVolumeTargets({ ...volumeTargets, [muscle]: newVal });
-                  }}
-                >
-                  <Text style={styles.volumeBtnText}>-</Text>
-                </TouchableOpacity>
+                {!locked && (
+                  <TouchableOpacity
+                    style={styles.volumeBtn}
+                    onPress={() => {
+                      const newVal = Math.max(0, value - 2);
+                      setVolumeTargets({ ...volumeTargets, [muscle]: newVal });
+                    }}
+                  >
+                    <Text style={styles.volumeBtnText}>-</Text>
+                  </TouchableOpacity>
+                )}
                 <Text style={[
                   styles.volumeValue,
                   value < guard.floor && value > 0 && { color: COLORS.warning },
@@ -78,18 +106,20 @@ const VolumeConfigurator = ({
                 ]}>
                   {value}
                 </Text>
-                <TouchableOpacity
-                  style={styles.volumeBtn}
-                  onPress={() => {
-                    const newVal = Math.min(guard.ceiling + 2, value + 2);
-                    setVolumeTargets({ ...volumeTargets, [muscle]: newVal });
-                  }}
-                >
-                  <Text style={styles.volumeBtnText}>+</Text>
-                </TouchableOpacity>
+                {!locked && (
+                  <TouchableOpacity
+                    style={styles.volumeBtn}
+                    onPress={() => {
+                      const newVal = Math.min(guard.ceiling + 2, value + 2);
+                      setVolumeTargets({ ...volumeTargets, [muscle]: newVal });
+                    }}
+                  >
+                    <Text style={styles.volumeBtnText}>+</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {isExpanded && (
+            {isExpanded && !locked && (
               <View style={styles.guardrailEditor}>
                 <View style={styles.guardrailRow}>
                   <Text style={styles.guardrailLabel}>Floor</Text>
@@ -162,17 +192,17 @@ const VolumeConfigurator = ({
       <Modal visible={showInfoModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Volume Guardrails</Text>
+            <Text style={styles.modalTitle}>Starting Volume</Text>
             <Text style={styles.modalBody}>
-              <Text style={styles.modalBold}>Floor (Minimum Volume)</Text>
-              {'\n'}The fewest weekly sets per muscle group that still produce measurable growth. Going below the floor means you're likely not providing enough stimulus.
+              <Text style={styles.modalBold}>Week 1 start</Text>
+              {'\n'}These are the weekly set targets used to build the first week of your block. Later weeks progress automatically from this starting point.
             </Text>
             <Text style={[styles.modalBody, { marginTop: SPACING.md }]}>
-              <Text style={styles.modalBold}>Ceiling (Maximum Volume)</Text>
-              {'\n'}The most weekly sets you can handle while still recovering between sessions. Exceeding the ceiling leads to accumulated fatigue and potential regression.
+              <Text style={styles.modalBold}>Range</Text>
+              {'\n'}The minimum and maximum weekly sets the app should stay within when building the plan.
             </Text>
             <Text style={[styles.modalBody, { marginTop: SPACING.md, color: COLORS.text_tertiary }]}>
-              Advanced lifters can customize these values by tapping the floor/ceiling numbers next to each muscle group.
+              Starting volume and ranges lock once the block starts. Make session-level changes from the active workout when you need a temporary adjustment.
             </Text>
             <TouchableOpacity style={styles.modalDismiss} onPress={() => setShowInfoModal(false)}>
               <Text style={styles.modalDismissText}>Got it</Text>
@@ -203,6 +233,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text_tertiary,
     marginBottom: SPACING.sm,
+  },
+  lockedNote: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.bg_elevated,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  lockedNoteText: {
+    color: COLORS.text_secondary,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
   },
   infoButton: {
     width: 24,
@@ -263,7 +307,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.accent_light,
-    minWidth: 30,
+    minWidth: 34,
     textAlign: 'center',
   },
   guardrailEditor: {

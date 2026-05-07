@@ -111,13 +111,19 @@ export default function usePlanSettings() {
     }
   };
 
-  const isDirty = guardrailsDirty || (original !== null && (
+  const blockHasStarted = block !== null && (
+    block.currentWeek > 1 ||
+    (block.workoutSessions || []).some((session) => ['in_progress', 'completed'].includes(session.status))
+  );
+  const startingRirLocked = block !== null && block.currentWeek > 1;
+
+  const isDirty = (!blockHasStarted && guardrailsDirty) || (original !== null && (
     splitType !== original.splitType ||
     daysPerWeek !== original.daysPerWeek ||
     lengthWeeks !== original.lengthWeeks ||
     JSON.stringify(customDays) !== original.customDays ||
-    JSON.stringify(volumeTargets) !== original.volumeTargets ||
-    startingRir !== original.startingRir ||
+    (!blockHasStarted && JSON.stringify(volumeTargets) !== original.volumeTargets) ||
+    (!startingRirLocked && startingRir !== original.startingRir) ||
     rirFloor !== original.rirFloor ||
     rirDecrementPerWeek !== original.rirDecrementPerWeek
   ));
@@ -133,14 +139,14 @@ export default function usePlanSettings() {
       if (JSON.stringify(customDays) !== original!.customDays && splitType === 'custom') {
         body.customDays = customDays;
       }
-      if (JSON.stringify(volumeTargets) !== original!.volumeTargets) {
+      if (!blockHasStarted && JSON.stringify(volumeTargets) !== original!.volumeTargets) {
         body.volumeTargets = volumeTargets;
       }
-      if (startingRir !== original!.startingRir) body.startingRir = startingRir;
+      if (!startingRirLocked && startingRir !== original!.startingRir) body.startingRir = startingRir;
       if (rirFloor !== original!.rirFloor) body.rirFloor = rirFloor;
       if (rirDecrementPerWeek !== original!.rirDecrementPerWeek) body.rirDecrementPerWeek = rirDecrementPerWeek;
 
-      if (guardrailsDirty) {
+      if (!blockHasStarted && guardrailsDirty) {
         const customGuardrails: Record<string, { floor?: number; ceiling?: number }> = {};
         for (const [muscle, guard] of Object.entries(guardrails)) {
           const def = DEFAULT_VOLUME_GUARDRAILS[muscle];
